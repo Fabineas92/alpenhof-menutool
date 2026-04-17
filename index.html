@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Alpenhof – Menükarten Tool</title>
+
+<!-- Externe Bibliotheken: PDF-Export, HTML→Canvas, Excel-Export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* =========================================================
+   ZENTRALE LAYOUT-KONSTANTEN (nicht verändern ohne Absprache)
+   ========================================================= */
+:root {
+  /* Format = Chefregel: immer 297 x 297 mm */
+  --page-size: 297mm;
+
+  /* Typo */
+  --font-base: 'Avenir', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
+  --font-alt:  'Semplicita Pro', 'Semplicita Pro Bold', 'Georgia', serif;
+
+  /* Schriftgrößen in Punkt (fix) */
+  --fs-title:    22pt;
+  --fs-section:  14pt;
+  --fs-body:     11pt;
+  --fs-price:    13pt;
+  --fs-date:     13pt;
+
+  /* Zeilenhöhen */
+  --lh-tight: 1.25;
+  --lh-body:  1.35;
+
+  /* Abstände */
+  --gap-lang:    2mm;   /* Abstand zwischen Sprach-Zeilen */
+  --gap-block:   7mm;   /* Abstand zwischen Gang-Blöcken */
+  --gap-section: 9mm;   /* Abstand zwischen Sektionen */
+  --pad-page:    20mm;  /* Innenabstand der Karte */
+
+  /* Farben (Julen/Alpenhof-Palette: warme Creme, Anthrazit, gedämpftes Bergrün) */
+  --ink:     #2a2420;
+  --ink-2:   #4a4038;
+  --muted:   #8a7f74;
+  --warn:    #a77a2a;
+  --error:   #9a2f22;
+  --ok:      #4c6b3b;
+  --accent:  #5b6d4e;  /* Bergrün */
+  --bg:      #f3ede3;  /* warme Creme */
+  --bg-soft: #ebe3d4;
+  --card:    #ffffff;
+  --border:  #d9cfc0;
+  --border-soft: #e8e0d1;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; font-family: var(--font-base); color: var(--ink); background: var(--bg); }
+
+/* ---------- LOCK SCREEN (Julen-Stil) ---------- */
+#lock-screen {
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(160deg, rgba(30,26,22,.82), rgba(20,17,14,.94)),
+    url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1600') center/cover no-repeat;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; color: #f3ede3;
+  font-family: 'Avenir', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
+}
+#lock-screen.hidden { display: none; }
+
+#lock-screen .lock-box {
+  text-align: center; padding: 40px 32px;
+  max-width: 360px; width: 90%;
+}
+#lock-screen .lock-logo { height: 90px; width: auto; margin-bottom: 22px; filter: brightness(0) invert(1); }
+#lock-screen h1 {
+  margin: 0 0 4px; font-size: 22px; letter-spacing: 8px; font-weight: 400;
+  text-transform: uppercase;
+}
+#lock-screen .lock-sub {
+  color: rgba(243,237,227,.55); font-size: 10px; letter-spacing: 4px;
+  text-transform: uppercase; margin-bottom: 30px;
+}
+#lock-screen #lock-quote {
+  font-style: italic; color: rgba(243,237,227,.8); font-size: 14px;
+  min-height: 22px; margin-bottom: 28px; transition: opacity .4s ease;
+  letter-spacing: .5px;
+}
+
+.lock-digits { display: flex; justify-content: center; gap: 10px; margin-bottom: 18px; }
+.lock-digit {
+  width: 52px; height: 62px; text-align: center;
+  font-size: 26px; font-weight: 500;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(243,237,227,.25);
+  border-radius: 4px; color: #f3ede3;
+  outline: none; transition: all .2s;
+}
+.lock-digit:focus { border-color: #7dab6e; background: rgba(125,171,110,.1); }
+.lock-digit.error {
+  border-color: #c94f44; background: rgba(201,79,68,.15);
+  animation: shake .4s;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+#lock-error {
+  min-height: 18px; font-size: 12px; color: #e8a29b;
+  letter-spacing: 1px; margin-bottom: 14px;
+}
+#lock-submit {
+  background: transparent; color: #f3ede3;
+  border: 1px solid rgba(243,237,227,.35);
+  padding: 10px 28px; font-size: 11px; letter-spacing: 3px;
+  text-transform: uppercase; cursor: pointer; border-radius: 3px;
+  transition: all .2s;
+}
+#lock-submit:hover { background: rgba(243,237,227,.1); border-color: #f3ede3; }
+
+.app { display: grid; }
+
+.app {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  min-height: 100vh;
+}
+
+/* ---------- SIDEBAR (Editor) ---------- */
+.sidebar {
+  background: #fff;
+  border-right: 1px solid var(--border);
+  padding: 0 0 120px 0;
+  overflow-y: auto;
+  max-height: 100vh;
+}
+.sidebar-header {
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg);
+  text-align: center;
+}
+.sidebar-header img.logo { height: 72px; width: auto; display: block; margin: 0 auto 10px; }
+.sidebar-header .subtitle {
+  font-size: 10px; color: var(--muted); letter-spacing: 4px;
+  text-transform: uppercase; margin-top: 2px;
+}
+.sidebar-header h1 {
+  font-size: 16px; margin: 0; letter-spacing: 3px; text-transform: uppercase;
+  font-weight: 500; color: var(--ink);
+}
+.sidebar-body { padding: 18px; }
+.sidebar .section {
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: #fff;
+}
+.sidebar h2 {
+  font-size: 10px; margin: 0 0 10px 0; text-transform: uppercase;
+  letter-spacing: 2.5px; color: var(--muted); font-weight: 600;
+  border-bottom: 1px solid var(--border-soft); padding-bottom: 6px;
+}
+
+label { display: block; font-size: 12px; color: var(--muted); margin: 6px 0 3px; }
+input[type=text], textarea, select {
+  width: 100%; padding: 8px; font-size: 13px; font-family: inherit;
+  border: 1px solid var(--border); border-radius: 4px; background: #fff; color: var(--ink);
+}
+textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
+
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; }
+
+.btn {
+  display: inline-block; padding: 9px 14px; font-size: 11px; font-weight: 600;
+  background: var(--ink); color: #fff; border: none; border-radius: 3px; cursor: pointer;
+  transition: background .15s, transform .05s;
+  letter-spacing: 1.5px; text-transform: uppercase;
+}
+.btn:hover { background: #000; }
+.btn:active { transform: translateY(1px); }
+.btn.secondary { background: #fff; color: var(--ink); border: 1px solid var(--border); }
+.btn.secondary:hover { background: var(--bg); }
+.btn.accent { background: var(--accent); }
+.btn.accent:hover { background: #46563c; }
+.btn.danger { background: var(--error); }
+.btn.small { padding: 5px 9px; font-size: 10px; letter-spacing: 1px; }
+.btn.wide { width: 100%; }
+
+.btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+.course { border: 1px dashed var(--border); padding: 10px; border-radius: 4px; margin-bottom: 10px; background: #fff; }
+.course .course-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.course .course-head strong { font-size: 12px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+
+.alt { border-top: 1px dotted var(--border); padding-top: 8px; margin-top: 8px; }
+.alt:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+.messages { margin-top: 10px; }
+.message { padding: 8px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 4px; border-left: 3px solid; }
+.message.warn  { background: #fff8ea; border-color: var(--warn); color: #7a5b1a; }
+.message.error { background: #fdeeec; border-color: var(--error); color: #7a1d18; }
+.message.ok    { background: #ecf7ef; border-color: var(--ok); color: #155a2a; }
+
+/* ---------- PREVIEW ---------- */
+.preview-wrap {
+  padding: 28px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg);
+}
+.preview-tools {
+  display: flex; gap: 14px; align-items: center; margin-bottom: 18px; flex-wrap: wrap;
+  color: var(--ink); font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+}
+.preview-tools strong { font-weight: 600; }
+.preview-tools .meta { color: var(--muted); font-size: 10px; letter-spacing: 1.5px; }
+.preview-tools .zoom { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--muted); letter-spacing: 1.5px; }
+.preview-tools input[type=range] { width: 120px; accent-color: var(--accent); }
+
+/* 297×297mm Karte. Mit CSS-Zoom für den Bildschirm. */
+#menu-frame {
+  width: var(--page-size);
+  height: var(--page-size);
+  background: var(--card);
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  border: 1px solid var(--border);
+  padding: var(--pad-page);
+  font-family: var(--font-base);
+  color: var(--ink);
+  transform-origin: top left;
+  overflow: hidden;     /* Überlauf wird erkannt, aber abgeschnitten */
+  position: relative;
+}
+
+#menu-frame.font-semplicita {
+  --font-base: 'Semplicita Pro', 'Semplicita Pro Bold', 'Georgia', serif;
+  font-family: var(--font-base);
+}
+
+/* Sprachstile — technisch so implementiert, dass sie nicht vertauscht werden können */
+.lang-de { font-style: normal; font-weight: 400; }
+.lang-fr { font-style: italic;  font-weight: 400; }
+.lang-en { font-style: normal; font-weight: 700; }
+
+.menu-inner { display: flex; flex-direction: column; height: 100%; }
+
+.menu-logo {
+  display: flex; justify-content: center; margin-bottom: 6mm;
+}
+.menu-logo img { height: 28mm; width: auto; }
+
+.menu-title {
+  text-align: center;
+  font-size: var(--fs-title);
+  letter-spacing: 6px;
+  margin-bottom: var(--gap-section);
+  font-weight: 400;
+  text-transform: uppercase;
+}
+.menu-title .lang-de, .menu-title .lang-fr, .menu-title .lang-en { display: inline; }
+.menu-title .sep { margin: 0 .4em; color: var(--muted); font-weight: 300; }
+
+/* Dekorative Trennlinie unter Titel */
+.menu-title::after {
+  content: ''; display: block; width: 24mm; height: 1px;
+  background: var(--ink); margin: 4mm auto 0; opacity: .4;
+}
+
+.menu-section { margin-bottom: var(--gap-section); text-align: center; }
+.menu-section.welcome p {
+  margin: 0 0 4mm 0; font-size: var(--fs-body); line-height: var(--lh-body);
+}
+.menu-section .section-head {
+  font-size: var(--fs-section); font-weight: 600; margin-bottom: 3mm;
+  letter-spacing: 1px;
+}
+.menu-section .section-head .sep { color: var(--muted); margin: 0 .5em; }
+
+.wine-list { font-size: var(--fs-body); line-height: var(--lh-body); }
+.wine-list .wine { margin-bottom: 2mm; }
+
+.menu-date {
+  text-align: center;
+  font-size: var(--fs-date);
+  font-weight: 600;
+  margin: var(--gap-section) 0;
+  letter-spacing: 1px;
+}
+
+.courses { display: flex; flex-direction: column; align-items: center; gap: var(--gap-block); }
+.course-block { text-align: center; max-width: 85%; font-size: var(--fs-body); line-height: var(--lh-body); }
+.course-block .alt-row { margin-bottom: var(--gap-lang); }
+.course-block .alt-row > div { margin-bottom: var(--gap-lang); }
+
+.course-sep { text-align: center; margin: var(--gap-block) 0; letter-spacing: 4px; color: var(--muted); }
+.alt-sep { text-align: center; margin: 3mm 0; font-size: var(--fs-body); color: var(--muted); }
+
+.menu-prices { text-align: center; margin-top: auto; padding-top: var(--gap-section); }
+.menu-prices .price-line { font-size: var(--fs-price); font-weight: 600; margin-bottom: 2mm; letter-spacing: 1px; }
+
+/* Warnungs-Badge im Preview */
+#overflow-badge {
+  position: absolute; bottom: 8mm; right: 8mm;
+  background: var(--error); color: #fff; padding: 3mm 5mm; font-size: 10pt;
+  border-radius: 3mm; display: none;
+}
+#overflow-badge.visible { display: block; }
+
+/* Font-Ladestatus */
+.font-status { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.font-status .missing { color: var(--warn); }
+
+/* Toolbar-Links */
+.toolbar-top {
+  background: #1b1b1b; color: #fff;
+  padding: 10px 18px; display: flex; justify-content: space-between; align-items: center;
+  grid-column: 1 / -1;
+  font-size: 13px;
+}
+.toolbar-top .brand { font-weight: 700; letter-spacing: 2px; }
+.toolbar-top .meta { color: #bbb; font-size: 11px; }
+</style>
+
+</head>
+<body>
+
+<!-- Lock-Screen (4-Digit, rotierende Zitate, Julen-Stil) -->
+<div id="lock-screen">
+  <div class="lock-box">
+    <img src="assets/logo.svg" alt="Tradition Julen" class="lock-logo" />
+    <h1>Alpenhof</h1>
+    <div class="lock-sub">Menükarten-Tool</div>
+    <div id="lock-quote">Willkommen</div>
+    <div class="lock-digits">
+      <input class="lock-digit" type="password" inputmode="numeric" maxlength="1" autocomplete="off" />
+      <input class="lock-digit" type="password" inputmode="numeric" maxlength="1" autocomplete="off" />
+      <input class="lock-digit" type="password" inputmode="numeric" maxlength="1" autocomplete="off" />
+      <input class="lock-digit" type="password" inputmode="numeric" maxlength="1" autocomplete="off" />
+    </div>
+    <div id="lock-error"></div>
+    <button id="lock-submit">Entsperren</button>
+  </div>
+</div>
+
+<div id="app" class="app" style="display:none;">
+  <!-- =========== SIDEBAR / EDITOR =========== -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <img src="assets/logo.svg" alt="Tradition Julen" class="logo" />
+      <h1>Alpenhof</h1>
+      <div class="subtitle">Menükarten-Tool</div>
+    </div>
+    <div class="sidebar-body">
+
+    <!-- Schriftart + Globale Aktionen -->
+    <div class="section">
+      <h2>Schriftart & Aktionen</h2>
+      <label>Schriftart</label>
+      <select id="font-select">
+        <option value="avenir">Avenir</option>
+        <option value="semplicita">Semplicita Pro Bold</option>
+      </select>
+      <div class="font-status" id="font-status"></div>
+
+      <div class="btn-row" style="margin-top: 12px;">
+        <button class="btn secondary" onclick="checkSpelling()">Rechtschreibung prüfen</button>
+        <button class="btn secondary" onclick="translateAll()">Übersetzen</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn wide" onclick="checkAll()">Alles prüfen &amp; übersetzen</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" onclick="exportPDF()">PDF Export</button>
+        <button class="btn secondary" onclick="exportExcel()">Excel Export</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary small" onclick="loadExample()">Beispiel laden</button>
+        <button class="btn secondary small" onclick="clearAll()">Alles leeren</button>
+      </div>
+    </div>
+
+    <!-- Begrüßung -->
+    <div class="section">
+      <h2>Begrüßung</h2>
+      <label>Titel (DE)</label>
+      <input type="text" id="title-de" value="WILLKOMMEN" />
+
+      <label>Text (DE, mehrere Absätze mit Leerzeile trennen)</label>
+      <textarea id="welcome-de" rows="6"></textarea>
+    </div>
+
+    <!-- Weinempfehlung -->
+    <div class="section">
+      <h2>Weinempfehlung</h2>
+      <label>Überschrift (DE)</label>
+      <input type="text" id="wine-title-de" value="Weinempfehlung" />
+
+      <div id="wine-list"></div>
+      <div class="btn-row">
+        <button class="btn secondary small" onclick="addWine()">+ Wein hinzufügen</button>
+      </div>
+    </div>
+
+    <!-- Datum -->
+    <div class="section">
+      <h2>Datum</h2>
+      <input type="text" id="date-de" placeholder="z.B. Freitag 17. April 2026" />
+    </div>
+
+    <!-- Gänge -->
+    <div class="section">
+      <h2>Gänge</h2>
+      <div id="courses"></div>
+      <div class="btn-row">
+        <button class="btn secondary small" onclick="addCourse()">+ Gang hinzufügen</button>
+      </div>
+    </div>
+
+    <!-- Preise -->
+    <div class="section">
+      <h2>Preise</h2>
+      <div id="prices"></div>
+      <div class="btn-row">
+        <button class="btn secondary small" onclick="addPrice()">+ Preiszeile</button>
+      </div>
+    </div>
+
+    <div class="messages" id="messages"></div>
+    </div><!-- /sidebar-body -->
+  </aside>
+
+  <!-- =========== PREVIEW =========== -->
+  <section class="preview-wrap">
+    <div class="preview-tools">
+      <strong>Vorschau</strong>
+      <span class="meta" style="color:var(--muted); font-size:12px;">Format: 297 × 297 mm (fix)</span>
+      <div class="zoom">
+        Zoom
+        <input type="range" id="zoom" min="20" max="100" value="45" />
+        <span id="zoom-val">45%</span>
+      </div>
+    </div>
+
+    <div id="menu-scaler">
+      <div id="menu-frame" class="font-avenir">
+        <div class="menu-inner" id="menu-inner"></div>
+        <div id="overflow-badge">Textüberlauf – Inhalt kürzen</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =========================================================
+   LOCK-SCREEN (4-Digit, rotierende Zitate)
+   Client-seitiger Schutz. Session-basiert (pro Tab/Browser).
+   ========================================================= */
+(function () {
+  'use strict';
+  const CORRECT_CODE = '3920';
+  const SESSION_KEY  = 'alpenhof_auth';
+  const QUOTES = [
+    'Willkommen',
+    'Bienvenue',
+    'Welcome',
+    '« en güeta »',
+    'Tradition seit 1910'
+  ];
+
+  function initLockScreen() {
+    const lockScreen = document.getElementById('lock-screen');
+    if (!lockScreen) return;
+
+    if (sessionStorage.getItem(SESSION_KEY) === '1') {
+      unlock(true);
+      return;
+    }
+
+    // Zitate rotieren
+    let quoteIdx = 0;
+    const quoteEl = document.getElementById('lock-quote');
+    if (quoteEl && QUOTES.length > 1) {
+      setInterval(() => {
+        quoteIdx = (quoteIdx + 1) % QUOTES.length;
+        quoteEl.style.opacity = '0';
+        setTimeout(() => {
+          quoteEl.textContent = QUOTES[quoteIdx];
+          quoteEl.style.opacity = '1';
+        }, 400);
+      }, 4000);
+    }
+
+    const digits = document.querySelectorAll('.lock-digit');
+    digits.forEach((input, i) => {
+      input.addEventListener('input', () => {
+        input.classList.remove('error');
+        document.getElementById('lock-error').textContent = '';
+        if (input.value.length === 1 && i < digits.length - 1) digits[i + 1].focus();
+        const code = [...digits].map(d => d.value).join('');
+        if (code.length === 4) setTimeout(() => checkCode(digits), 100);
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && input.value === '' && i > 0) {
+          digits[i - 1].focus();
+          digits[i - 1].value = '';
+        }
+        if (e.key === 'Enter') checkCode(digits);
+      });
+      input.addEventListener('keypress', (e) => {
+        if (!/[0-9]/.test(e.key)) e.preventDefault();
+      });
+    });
+
+    document.getElementById('lock-submit').addEventListener('click', () => checkCode(digits));
+    setTimeout(() => digits[0].focus(), 150);
+  }
+
+  function checkCode(digits) {
+    const code = [...digits].map(d => d.value).join('');
+    if (code === CORRECT_CODE) {
+      sessionStorage.setItem(SESSION_KEY, '1');
+      digits.forEach(d => {
+        d.style.borderColor = '#7dab6e';
+        d.style.background  = 'rgba(125,171,110,.15)';
+      });
+      setTimeout(() => unlock(false), 400);
+    } else {
+      digits.forEach(d => { d.classList.add('error'); d.value = ''; });
+      document.getElementById('lock-error').textContent = 'Falscher Code';
+      digits[0].focus();
+      setTimeout(() => digits.forEach(d => d.classList.remove('error')), 600);
+    }
+  }
+
+  function unlock(instant) {
+    const lockScreen = document.getElementById('lock-screen');
+    const app = document.getElementById('app');
+    if (instant) {
+      lockScreen.classList.add('hidden');
+      app.style.display = 'grid';
+      return;
+    }
+    lockScreen.style.transition = 'opacity .5s ease';
+    lockScreen.style.opacity = '0';
+    setTimeout(() => {
+      lockScreen.classList.add('hidden');
+      app.style.display = 'grid';
+    }, 500);
+  }
+
+  document.addEventListener('DOMContentLoaded', initLockScreen);
+})();
+
+/* =========================================================
+   STATE
+   ========================================================= */
+const state = {
+  font: 'avenir',
+  title: {
+    de: 'WILLKOMMEN',
+    fr: 'BIENVENUE',
+    en: 'WELCOME'
+  },
+  welcome: {
+    de: '',
+    fr: '',
+    en: ''
+  },
+  wineTitle: { de: 'Weinempfehlung', fr: 'propositions de vins', en: 'wine recommendation' },
+  wines: [], // { de:{name,info}, fr:{name,info}, en:{name,info} }
+  date: { de: '', fr: '', en: '' },
+  courses: [], // [{ alts: [ {de, fr, en}, ... ] }]
+  prices: []   // [ "5 Gänge / 5 Plats / 5 Courses CHF 78" ]
+};
+
+/* =========================================================
+   LAYOUT-KONSTANTEN (Validation)
+   ========================================================= */
+const LAYOUT = {
+  pageMM: 297,
+  order: ['de', 'fr', 'en'],
+  styleMap: { de: 'regular', fr: 'italic', en: 'bold' }
+};
+
+/* =========================================================
+   LOKALES WÖRTERBUCH: schnelle, restaurant-taugliche
+   Übersetzungen für typische Begriffe.
+   Fallback-Übersetzung, bevor wir die Online-API bemühen.
+   ========================================================= */
+const DICT_FR = {
+  'willkommen': 'bienvenue',
+  'weinempfehlung': 'propositions de vins',
+  'oder': 'ou',
+  'käse': 'fromage',
+  'käseteller': 'assiette de fromages',
+  'salat buffet': 'buffet de salades',
+  '5 gänge': '5 plats',
+  '2 gänge': '2 plats',
+  '3 gänge': '3 plats',
+  '4 gänge': '4 plats'
+};
+const DICT_EN = {
+  'willkommen': 'welcome',
+  'weinempfehlung': 'wine recommendation',
+  'oder': 'or',
+  'käse': 'cheese',
+  'käseteller': 'cheese plate',
+  'salat buffet': 'salad buffet',
+  '5 gänge': '5 courses',
+  '2 gänge': '2 courses',
+  '3 gänge': '3 courses',
+  '4 gänge': '4 courses'
+};
+
+/* =========================================================
+   ÜBERSETZUNG – MyMemory API (kostenlos, ohne Key)
+   Fällt auf leeren String zurück, wenn offline.
+   ========================================================= */
+async function translateText(text, targetLang) {
+  if (!text || !text.trim()) return '';
+
+  // Erst lokales Wörterbuch (einzelne Zeilen exakt)
+  const low = text.trim().toLowerCase();
+  if (targetLang === 'fr' && DICT_FR[low]) return capitalizeLike(text, DICT_FR[low]);
+  if (targetLang === 'en' && DICT_EN[low]) return capitalizeLike(text, DICT_EN[low]);
+
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=de|${targetLang}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Translate API fehler');
+    const data = await res.json();
+    const translated = data?.responseData?.translatedText || '';
+    return translated;
+  } catch (err) {
+    console.warn('Translation fallback for:', text, err);
+    return '';
+  }
+}
+
+/* Übernimmt Gross-/Klein-Schreibung des Originals in die Übersetzung */
+function capitalizeLike(original, translated) {
+  if (original === original.toUpperCase()) return translated.toUpperCase();
+  if (original[0] && original[0] === original[0].toUpperCase())
+    return translated[0].toUpperCase() + translated.slice(1);
+  return translated;
+}
+
+/* =========================================================
+   RECHTSCHREIBUNG – LanguageTool API (kostenlos, ohne Key)
+   ========================================================= */
+async function spellCheckDE(text) {
+  if (!text || !text.trim()) return [];
+  try {
+    const body = new URLSearchParams();
+    body.set('text', text);
+    body.set('language', 'de-DE');
+    const res = await fetch('https://api.languagetool.org/v2/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (!res.ok) throw new Error('LT Fehler');
+    const data = await res.json();
+    return data.matches || [];
+  } catch (err) {
+    console.warn('Spellcheck offline:', err);
+    return null;
+  }
+}
+
+/* =========================================================
+   UI-BUILDER: Editorbereiche
+   ========================================================= */
+function renderWines() {
+  const box = document.getElementById('wine-list');
+  box.innerHTML = '';
+  state.wines.forEach((w, i) => {
+    const div = document.createElement('div');
+    div.className = 'alt';
+    div.innerHTML = `
+      <label>Wein ${i+1} – Name (DE)</label>
+      <input type="text" data-wine-field="name" data-idx="${i}" value="${escapeAttr(w.de.name)}" />
+      <label>Info (Preis, Herkunft) DE</label>
+      <input type="text" data-wine-field="info" data-idx="${i}" value="${escapeAttr(w.de.info)}" />
+      <div class="btn-row">
+        <button class="btn danger small" onclick="removeWine(${i})">Entfernen</button>
+      </div>
+    `;
+    box.appendChild(div);
+  });
+  box.querySelectorAll('input[data-wine-field]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const idx = +e.target.dataset.idx;
+      const field = e.target.dataset.wineField;
+      state.wines[idx].de[field] = e.target.value;
+      renderPreview();
+    });
+  });
+}
+function addWine() {
+  state.wines.push({
+    de: { name: '', info: '' },
+    fr: { name: '', info: '' },
+    en: { name: '', info: '' }
+  });
+  renderWines();
+}
+function removeWine(i) { state.wines.splice(i, 1); renderWines(); renderPreview(); }
+
+function renderCourses() {
+  const box = document.getElementById('courses');
+  box.innerHTML = '';
+  state.courses.forEach((c, ci) => {
+    const div = document.createElement('div');
+    div.className = 'course';
+    div.innerHTML = `
+      <div class="course-head">
+        <strong>Gang ${ci+1}</strong>
+        <button class="btn danger small" onclick="removeCourse(${ci})">Entfernen</button>
+      </div>
+      <div class="alts-${ci}"></div>
+      <div class="btn-row">
+        <button class="btn secondary small" onclick="addAlt(${ci})">+ Alternative (oder)</button>
+      </div>
+    `;
+    box.appendChild(div);
+    const altBox = div.querySelector('.alts-' + ci);
+    c.alts.forEach((a, ai) => {
+      const alt = document.createElement('div');
+      alt.className = 'alt';
+      alt.innerHTML = `
+        <label>Beschreibung (DE)</label>
+        <textarea data-course="${ci}" data-alt="${ai}" rows="3">${escapeHtml(a.de)}</textarea>
+        <div class="btn-row" style="margin-top:4px;">
+          ${c.alts.length > 1 ? `<button class="btn danger small" onclick="removeAlt(${ci},${ai})">– Alternative</button>` : ''}
+        </div>
+      `;
+      altBox.appendChild(alt);
+    });
+  });
+  box.querySelectorAll('textarea[data-course]').forEach(ta => {
+    ta.addEventListener('input', e => {
+      const ci = +e.target.dataset.course;
+      const ai = +e.target.dataset.alt;
+      state.courses[ci].alts[ai].de = e.target.value;
+      renderPreview();
+    });
+  });
+}
+function addCourse() {
+  state.courses.push({ alts: [ {de:'', fr:'', en:''} ] });
+  renderCourses(); renderPreview();
+}
+function removeCourse(i) { state.courses.splice(i,1); renderCourses(); renderPreview(); }
+function addAlt(ci) { state.courses[ci].alts.push({de:'', fr:'', en:''}); renderCourses(); renderPreview(); }
+function removeAlt(ci, ai) { state.courses[ci].alts.splice(ai,1); renderCourses(); renderPreview(); }
+
+function renderPrices() {
+  const box = document.getElementById('prices');
+  box.innerHTML = '';
+  state.prices.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'alt';
+    div.innerHTML = `
+      <label>Preiszeile ${i+1} (wird 1:1 dargestellt)</label>
+      <input type="text" data-price="${i}" value="${escapeAttr(p)}" />
+      <div class="btn-row"><button class="btn danger small" onclick="removePrice(${i})">Entfernen</button></div>
+    `;
+    box.appendChild(div);
+  });
+  box.querySelectorAll('input[data-price]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      state.prices[+e.target.dataset.price] = e.target.value;
+      renderPreview();
+    });
+  });
+}
+function addPrice() { state.prices.push(''); renderPrices(); }
+function removePrice(i) { state.prices.splice(i,1); renderPrices(); renderPreview(); }
+
+/* =========================================================
+   PREVIEW-RENDERING (striktes Layout)
+   ========================================================= */
+function renderPreview() {
+  const frame = document.getElementById('menu-frame');
+  frame.classList.remove('font-avenir', 'font-semplicita');
+  frame.classList.add(state.font === 'semplicita' ? 'font-semplicita' : 'font-avenir');
+
+  const inner = document.getElementById('menu-inner');
+  const parts = [];
+
+  // Logo
+  parts.push(`<div class="menu-logo"><img src="assets/logo.svg" alt="Tradition Julen" /></div>`);
+
+  // Titel
+  parts.push(`
+    <div class="menu-title">
+      <span class="lang-de">${escapeHtml(state.title.de)}</span>
+      <span class="sep">–</span>
+      <span class="lang-fr">${escapeHtml(state.title.fr)}</span>
+      <span class="sep">–</span>
+      <span class="lang-en">${escapeHtml(state.title.en)}</span>
+    </div>
+  `);
+
+  // Welcome
+  const wdLines = state.welcome.de.split(/\n\s*\n/).filter(Boolean);
+  const wfLines = state.welcome.fr.split(/\n\s*\n/).filter(Boolean);
+  const weLines = state.welcome.en.split(/\n\s*\n/).filter(Boolean);
+  if (wdLines.length || wfLines.length || weLines.length) {
+    parts.push('<div class="menu-section welcome">');
+    const maxN = Math.max(wdLines.length, wfLines.length, weLines.length);
+    for (let i=0; i<maxN; i++) {
+      parts.push(`
+        <p class="lang-de">${escapeHtml(wdLines[i]||'')}</p>
+        <p class="lang-fr">${escapeHtml(wfLines[i]||'')}</p>
+        <p class="lang-en">${escapeHtml(weLines[i]||'')}</p>
+      `);
+    }
+    parts.push('</div>');
+  }
+
+  // Weine
+  if (state.wines.length) {
+    parts.push(`
+      <div class="menu-section wines">
+        <div class="section-head">
+          <span class="lang-de">${escapeHtml(state.wineTitle.de)}</span>
+          <span class="sep">–</span>
+          <span class="lang-fr">${escapeHtml(state.wineTitle.fr)}</span>
+          <span class="sep">–</span>
+          <span class="lang-en">${escapeHtml(state.wineTitle.en)}</span>
+        </div>
+        <div class="wine-list">
+          ${state.wines.map(w => `
+            <div class="wine">
+              <div class="lang-de">${escapeHtml(w.de.name)}${w.de.info ? ' — ' + escapeHtml(w.de.info) : ''}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `);
+  }
+
+  // Datum
+  if (state.date.de) {
+    parts.push(`<div class="menu-date lang-de">${escapeHtml(state.date.de)}</div>`);
+  }
+
+  // Gänge
+  if (state.courses.length) {
+    parts.push('<div class="courses">');
+    state.courses.forEach((c, ci) => {
+      parts.push('<div class="course-block">');
+      c.alts.forEach((a, ai) => {
+        if (ai > 0) {
+          parts.push('<div class="alt-sep"><span class="lang-de">oder</span> / <span class="lang-fr">ou</span> / <span class="lang-en">or</span></div>');
+        }
+        parts.push(`
+          <div class="alt-row">
+            <div class="lang-de">${escapeHtml(a.de)}</div>
+            <div class="lang-fr">${escapeHtml(a.fr)}</div>
+            <div class="lang-en">${escapeHtml(a.en)}</div>
+          </div>
+        `);
+      });
+      parts.push('</div>');
+      if (ci < state.courses.length - 1) {
+        parts.push('<div class="course-sep">* * *</div>');
+      }
+    });
+    parts.push('</div>');
+  }
+
+  // Preise
+  if (state.prices.length) {
+    parts.push('<div class="menu-prices">');
+    state.prices.forEach(p => parts.push(`<div class="price-line">${escapeHtml(p)}</div>`));
+    parts.push('</div>');
+  }
+
+  inner.innerHTML = parts.join('\n');
+
+  // Overflow-Check: Inhaltshöhe vs. Kartenhöhe
+  requestAnimationFrame(() => {
+    const innerHeight = inner.scrollHeight;
+    const frameHeight = frame.clientHeight - (2 * mmToPx(20));
+    const badge = document.getElementById('overflow-badge');
+    if (innerHeight > frameHeight + 4) {
+      badge.classList.add('visible');
+    } else {
+      badge.classList.remove('visible');
+    }
+  });
+}
+
+/* =========================================================
+   MESSAGES / VALIDIERUNG
+   ========================================================= */
+function showMessages(msgs) {
+  const box = document.getElementById('messages');
+  box.innerHTML = msgs.map(m =>
+    `<div class="message ${m.type}">${escapeHtml(m.text)}</div>`
+  ).join('');
+}
+function pushMsg(arr, type, text) { arr.push({ type, text }); }
+
+function validateFormat() {
+  const msgs = [];
+  // Reihenfolge ist strukturell garantiert (de,fr,en in jedem Block).
+  // Wir prüfen aber: Sind alle Übersetzungen vorhanden?
+  if (state.title.de && (!state.title.fr || !state.title.en))
+    pushMsg(msgs, 'warn', 'Titel: FR/EN-Übersetzung fehlt.');
+
+  const wd = state.welcome.de.trim(), wf = state.welcome.fr.trim(), we = state.welcome.en.trim();
+  if (wd && (!wf || !we)) pushMsg(msgs, 'warn', 'Begrüßungstext: FR/EN-Übersetzung fehlt.');
+
+  state.courses.forEach((c, ci) => {
+    c.alts.forEach((a, ai) => {
+      if (a.de && (!a.fr || !a.en))
+        pushMsg(msgs, 'warn', `Gang ${ci+1}, Alternative ${ai+1}: FR/EN-Übersetzung fehlt.`);
+    });
+  });
+
+  state.wines.forEach((w, i) => {
+    if (w.de.name && (!w.fr.name || !w.en.name))
+      pushMsg(msgs, 'warn', `Wein ${i+1}: FR/EN-Name fehlt.`);
+  });
+
+  // Formatprüfung: Overflow
+  const frame = document.getElementById('menu-frame');
+  const inner = document.getElementById('menu-inner');
+  const innerHeight = inner.scrollHeight;
+  const frameHeight = frame.clientHeight - (2 * mmToPx(20));
+  if (innerHeight > frameHeight + 4) {
+    pushMsg(msgs, 'error', 'Textüberlauf! Inhalt passt nicht auf 297×297 mm. Bitte kürzen oder Schriftgröße anpassen (in CSS).');
+  }
+
+  // Schriftschnitt-Check (paranoid): Stellt sicher, dass CSS-Klassen existieren
+  ['lang-de','lang-fr','lang-en'].forEach(cls => {
+    const el = document.querySelector('.' + cls);
+    if (!el) return;
+    const cs = getComputedStyle(el);
+    const expect = LAYOUT.styleMap[cls.split('-')[1]];
+    const weight = parseInt(cs.fontWeight, 10) || 400;
+    const style = cs.fontStyle;
+    let ok = true;
+    if (expect === 'regular' && (weight >= 600 || style === 'italic')) ok = false;
+    if (expect === 'italic'  && style !== 'italic') ok = false;
+    if (expect === 'bold'    && weight < 600) ok = false;
+    if (!ok) pushMsg(msgs, 'error', `Schriftschnitt für ${cls} weicht ab (erwartet: ${expect}).`);
+  });
+
+  return msgs;
+}
+
+/* =========================================================
+   ÖFFENTLICHE BUTTON-FUNKTIONEN
+   ========================================================= */
+async function translateAll() {
+  showMessages([{ type: 'ok', text: 'Übersetze...' }]);
+
+  // Titel
+  if (state.title.de) {
+    state.title.fr = state.title.fr || await translateText(state.title.de, 'fr');
+    state.title.en = state.title.en || await translateText(state.title.de, 'en');
+  }
+
+  // Welcome: Absatzweise
+  state.welcome.fr = state.welcome.de ? await translateMulti(state.welcome.de, 'fr') : '';
+  state.welcome.en = state.welcome.de ? await translateMulti(state.welcome.de, 'en') : '';
+
+  // Wine title
+  if (state.wineTitle.de) {
+    state.wineTitle.fr = await translateText(state.wineTitle.de, 'fr');
+    state.wineTitle.en = await translateText(state.wineTitle.de, 'en');
+  }
+
+  // Weine (Name + Info, aber Zahlen behalten wir bei)
+  for (const w of state.wines) {
+    if (w.de.name) {
+      w.fr.name = await translateText(w.de.name, 'fr');
+      w.en.name = await translateText(w.de.name, 'en');
+    }
+    w.fr.info = w.de.info; // Preis/Herkunft identisch
+    w.en.info = w.de.info;
+  }
+
+  // Datum: bleibt typischerweise gleich bzw. wird übersetzt
+  if (state.date.de) {
+    state.date.fr = await translateText(state.date.de, 'fr');
+    state.date.en = await translateText(state.date.de, 'en');
+  }
+
+  // Gänge
+  for (const c of state.courses) {
+    for (const a of c.alts) {
+      if (a.de) {
+        a.fr = await translateText(a.de, 'fr');
+        a.en = await translateText(a.de, 'en');
+      }
+    }
+  }
+
+  renderPreview();
+  showMessages([{ type: 'ok', text: 'Übersetzung abgeschlossen. Bitte prüfen – FR/EN können manuell nachjustiert werden im Code/State.' }]);
+}
+
+async function translateMulti(text, lang) {
+  const paragraphs = text.split(/\n\s*\n/);
+  const out = [];
+  for (const p of paragraphs) {
+    out.push(await translateText(p, lang));
+  }
+  return out.join('\n\n');
+}
+
+async function checkSpelling() {
+  const texts = [];
+  if (state.welcome.de) texts.push({ label: 'Begrüßungstext', text: state.welcome.de });
+  state.courses.forEach((c, ci) => c.alts.forEach((a, ai) => {
+    if (a.de) texts.push({ label: `Gang ${ci+1}, Alt. ${ai+1}`, text: a.de });
+  }));
+
+  if (!texts.length) {
+    showMessages([{ type: 'warn', text: 'Keine deutschen Texte zum Prüfen.' }]);
+    return;
+  }
+
+  showMessages([{ type: 'ok', text: 'Prüfe Rechtschreibung...' }]);
+  const results = [];
+  for (const t of texts) {
+    const matches = await spellCheckDE(t.text);
+    if (matches === null) {
+      results.push({ type: 'warn', text: `${t.label}: Rechtschreibprüfung offline (LanguageTool nicht erreichbar).` });
+      continue;
+    }
+    if (matches.length) {
+      matches.slice(0, 5).forEach(m => {
+        const snippet = t.text.substr(m.offset, m.length);
+        const sug = (m.replacements || []).slice(0, 3).map(r => r.value).join(', ');
+        results.push({ type: 'warn', text: `${t.label}: «${snippet}» – ${m.message}${sug ? ' → '+sug : ''}` });
+      });
+    }
+  }
+  if (!results.length) results.push({ type: 'ok', text: 'Keine Rechtschreibfehler gefunden.' });
+  showMessages(results);
+}
+
+async function checkAll() {
+  await checkSpelling();
+  const spellMsgs = Array.from(document.querySelectorAll('#messages .message'))
+    .map(el => ({ type: [...el.classList].find(c => c!=='message'), text: el.textContent }));
+
+  await translateAll();
+  const formatMsgs = validateFormat();
+  if (!formatMsgs.length) formatMsgs.push({ type: 'ok', text: 'Layout ok. Keine Fehler.' });
+
+  showMessages([...spellMsgs, ...formatMsgs]);
+}
+
+/* =========================================================
+   EXPORTE
+   ========================================================= */
+async function exportPDF() {
+  const frame = document.getElementById('menu-frame');
+
+  // Temporär Skalierung auf 100% setzen, damit Canvas in Originalgröße rendert
+  const scaler = document.getElementById('menu-scaler');
+  const oldTransform = frame.style.transform;
+  frame.style.transform = 'none';
+
+  showMessages([{ type: 'ok', text: 'Erzeuge PDF ...' }]);
+
+  const canvas = await html2canvas(frame, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+  frame.style.transform = oldTransform;
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [297, 297] });
+  const imgData = canvas.toDataURL('image/png');
+  pdf.addImage(imgData, 'PNG', 0, 0, 297, 297);
+  const fname = `alpenhof-menu-${(state.date.de || 'entwurf').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.pdf`;
+  pdf.save(fname);
+  showMessages([{ type: 'ok', text: 'PDF gespeichert: ' + fname }]);
+}
+
+function exportExcel() {
+  const rows = [];
+  rows.push(['Bereich', 'Deutsch', 'Französisch (kursiv)', 'Englisch (fett)']);
+  rows.push(['Titel', state.title.de, state.title.fr, state.title.en]);
+  rows.push(['Begrüßung', state.welcome.de, state.welcome.fr, state.welcome.en]);
+  rows.push(['Wein-Titel', state.wineTitle.de, state.wineTitle.fr, state.wineTitle.en]);
+  state.wines.forEach((w, i) => {
+    rows.push([`Wein ${i+1}`, `${w.de.name} — ${w.de.info}`, `${w.fr.name} — ${w.fr.info}`, `${w.en.name} — ${w.en.info}`]);
+  });
+  rows.push(['Datum', state.date.de, state.date.fr, state.date.en]);
+  state.courses.forEach((c, ci) => {
+    c.alts.forEach((a, ai) => {
+      rows.push([`Gang ${ci+1} / Alt. ${ai+1}`, a.de, a.fr, a.en]);
+    });
+  });
+  state.prices.forEach((p, i) => rows.push([`Preis ${i+1}`, p, p, p]));
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 20 }, { wch: 55 }, { wch: 55 }, { wch: 55 }];
+
+  // Formatierungs-Hinweis in Zellen (Excel unterstützt zellweise Stile über xlsx.js-style in free nicht vollständig,
+  // darum markieren wir die Stile in der Kopfzeile.)
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Menukarte');
+  const fname = `alpenhof-menu-${(state.date.de || 'entwurf').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  showMessages([{ type: 'ok', text: 'Excel gespeichert: ' + fname }]);
+}
+
+/* =========================================================
+   UTILITIES
+   ========================================================= */
+function escapeHtml(s) {
+  if (s === undefined || s === null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+}
+function escapeAttr(s) {
+  if (s === undefined || s === null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+function mmToPx(mm) { return mm * 3.7795275591; }
+
+/* Zoom-Steuerung für Bildschirm-Vorschau */
+function applyZoom() {
+  const z = document.getElementById('zoom').value;
+  document.getElementById('zoom-val').textContent = z + '%';
+  const frame = document.getElementById('menu-frame');
+  frame.style.transform = `scale(${z/100})`;
+  const scaler = document.getElementById('menu-scaler');
+  // Container-Größe an skalierte Karte anpassen, damit der Scrollbereich passt
+  scaler.style.width  = (297 * 3.7795275591 * (z/100)) + 'px';
+  scaler.style.height = (297 * 3.7795275591 * (z/100)) + 'px';
+}
+
+/* Schriftarten-Verfügbarkeit prüfen (Best-effort via FontFace) */
+async function checkFonts() {
+  const status = document.getElementById('font-status');
+  const results = [];
+  // Avenir ist auf macOS meist vorhanden
+  const avenirOk = document.fonts && document.fonts.check('12px Avenir');
+  // Semplicita Pro ist meist NICHT vorhanden
+  const sempOk = document.fonts && document.fonts.check('12px "Semplicita Pro"');
+  results.push(avenirOk ? 'Avenir: verfügbar' : '<span class="missing">Avenir: fällt auf Helvetica/Arial zurück</span>');
+  results.push(sempOk ? 'Semplicita Pro: verfügbar' : '<span class="missing">Semplicita Pro: fällt auf Georgia zurück</span>');
+  status.innerHTML = results.join(' · ');
+}
+
+/* =========================================================
+   EVENT-BINDUNGEN
+   ========================================================= */
+document.getElementById('font-select').addEventListener('change', e => {
+  state.font = e.target.value;
+  renderPreview();
+});
+document.getElementById('title-de').addEventListener('input', e => { state.title.de = e.target.value; renderPreview(); });
+document.getElementById('welcome-de').addEventListener('input', e => { state.welcome.de = e.target.value; renderPreview(); });
+document.getElementById('wine-title-de').addEventListener('input', e => { state.wineTitle.de = e.target.value; renderPreview(); });
+document.getElementById('date-de').addEventListener('input', e => { state.date.de = e.target.value; renderPreview(); });
+
+document.getElementById('zoom').addEventListener('input', applyZoom);
+
+/* =========================================================
+   INIT + BEISPIEL
+   ========================================================= */
+function loadExample() {
+  state.title = { de: 'WILLKOMMEN', fr: 'BIENVENUE', en: 'WELCOME' };
+  state.welcome.de = `Unser Küchenchef Jonas Hehl und sein Team verwöhnen unsere Gäste täglich mit einem köstlichen 5-Gang-Auswahlmenü mit saisonalen Produkten.
+
+Vollendetes Geschmackserlebnis zeichnet das Restaurant Alpenhof aus – dazu gehört auch der richtige Wein. Bei über 200 Sorten aus der ganzen Welt kommen Liebhaber voll auf ihre Kosten.
+
+Bei Allergien oder Unverträglichkeiten sprechen Sie bitte mit unserem Serviceteam.
+
+Wir wünschen Ihnen «en güeta»!`;
+  state.welcome.fr = `Notre chef Jonas Hehl et son équipe gâtent nos hôtes tous les jours avec un délicieux menu à 5 plats avec des produits de saison.
+
+Le Restaurant Alpenhof se caractérise par une expérience gustative parfaite – choix judicieux du vin en fait partie. Avec plus de 200 variétés du monde entier, les amateurs en auront pour leur argent.
+
+Si vous êtes allergique ou intolérant, veuillez-vous adresser à notre équipe de service.
+
+Nous vous souhaitons « en güeta » et bon appétit !`;
+  state.welcome.en = `Our chef Jonas Hehl and his team spoil our guests daily with a delicious 5-course menu with seasonal products.
+
+The Restaurant Alpenhof is characterized by a perfect taste experience - including the right wine. Wine lovers will be spoilt for choice with over 200 different wines from around the globe.
+
+If you have allergies or intolerances, please talk to our service team.
+
+We wish you "en güeta" and enjoy your meal!`;
+
+  state.wineTitle = { de: 'Weinempfehlung', fr: 'propositions de vins', en: 'wine recommendation' };
+  state.wines = [
+    { de:{name:'Païen / Heida', info:'58 – Familie Boven, Chamoson'},
+      fr:{name:'Païen / Heida', info:'58 – Familie Boven, Chamoson'},
+      en:{name:'Païen / Heida', info:'58 – Familie Boven, Chamoson'} },
+    { de:{name:'Pinot Noir « Stricto Sensu »', info:'89 – Varone, Sion'},
+      fr:{name:'Pinot Noir « Stricto Sensu »', info:'89 – Varone, Sion'},
+      en:{name:'Pinot Noir « Stricto Sensu »', info:'89 – Varone, Sion'} }
+  ];
+
+  state.date = { de: 'Freitag 17. April 2026', fr: 'Vendredi 17 avril 2026', en: 'Friday 17 April 2026' };
+
+  state.courses = [
+    { alts: [
+      { de:'Eringer Rindfleisch Sülze, Alpkäse Mousse und Chips, Trüffel-Mayonnaise, Kumquats',
+        fr:"Gelée de bœuf d'Hérens, mousse et chips de fromage d'alpage, mayonnaise à la truffe, kumquats",
+        en:'Eringer beef aspic, alpine cheese mousse and crisps, truffle mayonnaise, kumquats' },
+      { de:'Hausgemachte Casarecce, Sauerrahmsauce, grüner Spargel, knusprige Kapern',
+        fr:'Casarecce maison, sauce à la crème aigre, asperges vertes, câpres croustillantes',
+        en:'Homemade casarecce, sour cream sauce, green asparagus, crispy capers' }
+    ]},
+    { alts: [
+      { de:'Geröstete Peperoni-Rahmsuppe, Papaya Würfel',
+        fr:'Soupe crémeuse aux poivrons grillés, dés de papaya',
+        en:'Roasted bell pepper cream soup with diced papaya' }
+    ]},
+    { alts: [
+      { de:'Salat Buffet',
+        fr:'Buffet de salades',
+        en:'Salad buffet' }
+    ]},
+    { alts: [
+      { de:'Grünes Curry vom Lammfilet, Basmatireis, Kürbiskerne, Bananenchips',
+        fr:"Curry vert de filet d'agneau, riz basmati, graines de courge, chips de banane",
+        en:'Green curry with lamb fillet, basmati rice, pumpkin seeds, banana chips' },
+      { de:'Riesen Krevetten, Gemüse Couscous, knusprige Kichererbsen, Koriander Pesto',
+        fr:'Crevettes géantes, couscous de légumes, pois chiches croustillants, pesto à la coriandre',
+        en:'Tiger prawns, vegetable couscous, crispy chickpeas, coriander pesto' },
+      { de:'Grünes Gemüse-Curry, Basmatireis, Kürbiskerne, Bananenchips',
+        fr:'Curry vert aux légumes, riz basmati, graines de courge, chips de banane',
+        en:'Green vegetable curry, basmati rice, pumpkin seeds, banana chips' }
+    ]},
+    { alts: [
+      { de:'Tiramisu, Schokoladen Eis, karamellisierte Pistazien',
+        fr:'Tiramisu, glace au chocolat, pistaches caramélisées',
+        en:'Tiramisu, chocolate ice cream, caramelised pistachios' },
+      { de:'Käseteller',
+        fr:'Assiette de fromages',
+        en:'Cheese plate' }
+    ]}
+  ];
+
+  state.prices = [
+    '5 Gänge / 5 Plats / 5 Courses     CHF 78',
+    '2 Gänge / 2 Plats / 2 Courses     CHF 48'
+  ];
+
+  // UI neu zeichnen
+  document.getElementById('title-de').value = state.title.de;
+  document.getElementById('welcome-de').value = state.welcome.de;
+  document.getElementById('wine-title-de').value = state.wineTitle.de;
+  document.getElementById('date-de').value = state.date.de;
+  renderWines(); renderCourses(); renderPrices(); renderPreview();
+  showMessages([{ type: 'ok', text: 'Beispielmenü geladen.' }]);
+}
+
+function clearAll() {
+  state.title = { de: '', fr: '', en: '' };
+  state.welcome = { de: '', fr: '', en: '' };
+  state.wineTitle = { de: '', fr: '', en: '' };
+  state.wines = [];
+  state.date = { de:'', fr:'', en:'' };
+  state.courses = [];
+  state.prices = [];
+  document.getElementById('title-de').value = '';
+  document.getElementById('welcome-de').value = '';
+  document.getElementById('wine-title-de').value = '';
+  document.getElementById('date-de').value = '';
+  renderWines(); renderCourses(); renderPrices(); renderPreview();
+  showMessages([]);
+}
+
+// Initialisierung
+checkFonts();
+loadExample();
+applyZoom();
+</script>
+
+</body>
+</html>
