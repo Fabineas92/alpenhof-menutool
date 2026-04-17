@@ -22,27 +22,41 @@
   --font-base: 'Avenir', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
   --font-alt:  'Semplicita Pro', 'Semplicita Pro Bold', 'Georgia', serif;
 
-  /* Schriftgrößen in Punkt (fix) */
-  --fs-title:    22pt;
-  --fs-section:  14pt;
-  --fs-body:     11pt;
-  --fs-price:    13pt;
-  --fs-date:     13pt;
+  /* Schriftgrößen — zur Laufzeit über Einstellungen veränderbar */
+  --fs-title:    11pt;
+  --fs-section:  11pt;
+  --fs-body:     10pt;
+  --fs-price:    10pt;
+  --fs-date:     11pt;
 
   /* Zeilenhöhen */
-  --lh-tight: 1.25;
-  --lh-body:  1.35;
+  --lh-tight: 1.2;
+  --lh-body:  1.3;
 
-  /* Abstände — aus Original-DOCX abgeleitet */
-  --gap-lang:    1.5mm; /* Abstand zwischen Sprach-Zeilen */
-  --gap-block:   6mm;   /* Abstand zwischen Gang-Blöcken */
-  --gap-section: 7mm;   /* Abstand zwischen Sektionen */
-  --pad-top:     15.8mm;
-  --pad-bottom:  14mm;
-  --pad-side:    25.4mm;
+  /* Abstände */
+  --gap-lang:     0.5mm;
+  --gap-welcome:  3.5mm;  /* Abstand zwischen DE/FR/EN Welcome-Blöcken */
+  --gap-course:   3mm;    /* Abstand zwischen Gängen */
+  --gap-course-sep: 3mm;  /* Abstand um *** Separator */
+  --gap-alt:      2mm;    /* Abstand um "oder / ou / or" */
+  --gap-section:  6mm;
+  --pad-top:      15.8mm;
+  --pad-bottom:   14mm;
+  --pad-side:     25.4mm;
 
-  /* Zweispaltiges, aufklappbares Layout (wie Original) */
-  --col-gap:     12.5mm;
+  /* Zweispaltiges, aufklappbares Layout */
+  --col-gap:      12.5mm;
+
+  /* Raster (Hilfslinien zum Druck-Entwurf) */
+  --grid-size:    5mm;
+  --grid-color:   rgba(30,140,220,.22);
+
+  /* Feinjustage-Offsets pro Sektion (mm) */
+  --off-welcome: 0mm;
+  --off-wine:    0mm;
+  --off-date:    0mm;
+  --off-courses: 0mm;
+  --off-prices:  0mm;
 
   /* Farben (Julen/Alpenhof-Palette: warme Creme, Anthrazit, gedämpftes Bergrün) */
   --ink:     #2a2420;
@@ -188,6 +202,28 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
 
 .btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 
+/* Slider- und Nudge-Rows für Layout-Einstellungen */
+.slider-row, .nudge-row, .check-row {
+  display: grid; align-items: center; gap: 8px;
+  margin-bottom: 4px; font-size: 11px;
+}
+.slider-row { grid-template-columns: 60px 1fr 40px; }
+.slider-row label { color: var(--muted); font-size: 11px; margin: 0; }
+.slider-row input[type=range] { width: 100%; accent-color: var(--accent); }
+.slider-row .val { font-variant-numeric: tabular-nums; text-align: right; color: var(--ink); font-weight: 600; }
+
+.nudge-row { grid-template-columns: 60px 28px 1fr 28px; }
+.nudge-row label { color: var(--muted); margin: 0; }
+.nudge-row .val { text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.check-row label { display: flex; align-items: center; gap: 6px; color: var(--ink); cursor: pointer; }
+.check-row input[type=checkbox] { accent-color: var(--accent); }
+
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: '▸ '; color: var(--muted); transition: transform .15s; display: inline-block; }
+details[open] > summary::before { content: '▾ '; }
+
 .course { border: 1px dashed var(--border); padding: 10px; border-radius: 4px; margin-bottom: 10px; background: #fff; }
 .course .course-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .course .course-head strong { font-size: 12px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
@@ -234,13 +270,33 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
   position: relative;
 }
 
-/* Falzlinie in der Mitte (nur visuelle Hilfe, nicht im Druck) */
-#menu-frame::after {
-  content: '';
+/* Falzlinie in der Mitte */
+#menu-frame .guide-fold {
   position: absolute; top: 0; bottom: 0; left: 50%;
-  width: 0; border-left: 1px dashed rgba(0,0,0,.08);
-  pointer-events: none;
+  width: 0; border-left: 1px dashed rgba(0,0,0,.15);
+  pointer-events: none; z-index: 5;
 }
+/* Margin-Guides */
+#menu-frame .guide-margins {
+  position: absolute;
+  top: var(--pad-top); bottom: var(--pad-bottom);
+  left: var(--pad-side); right: var(--pad-side);
+  border: 1px dashed rgba(30,140,220,.35);
+  pointer-events: none; z-index: 5;
+}
+/* Raster-Overlay (Punkte alle var(--grid-size)) */
+#menu-frame .guide-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, var(--grid-color) 0, var(--grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-color) 0, var(--grid-color) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  pointer-events: none; z-index: 4;
+}
+/* Guides sind optional – via toggles am Menu-Frame */
+#menu-frame:not(.show-fold) .guide-fold { display: none; }
+#menu-frame:not(.show-margins) .guide-margins { display: none; }
+#menu-frame:not(.show-grid) .guide-grid { display: none; }
 
 #menu-frame.font-semplicita {
   --font-base: 'Semplicita Pro', 'Semplicita Pro Bold', 'Georgia', serif;
@@ -281,17 +337,24 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
 .menu-title .lang-fr { font-weight: 700; font-style: normal; }
 .menu-title .lang-en { font-weight: 700; }
 
-/* Welcome-Block: 3 Absätze übereinander, mit Leerraum dazwischen */
-.welcome-block { margin-bottom: var(--gap-section); }
+/* Welcome-Block */
+.welcome-block {
+  margin-top: var(--off-welcome);
+  margin-bottom: var(--gap-section);
+}
 .welcome-block p {
-  margin: 0 0 1.2mm 0;
+  margin: 0 0 calc(var(--gap-lang)) 0;
   font-size: var(--fs-body);
   line-height: var(--lh-body);
 }
-.welcome-block .lang-group { margin-bottom: 3.5mm; }
+.welcome-block .lang-group { margin-bottom: var(--gap-welcome); }
+.welcome-block .lang-group:last-child { margin-bottom: 0; }
 
 /* Weinempfehlung – linksbündig, unten auf der linken Seite */
-.wine-section { margin-top: auto; }
+.wine-section {
+  margin-top: auto;
+  padding-top: var(--off-wine);
+}
 .wine-section .section-head {
   font-size: var(--fs-body); font-weight: 700;
   margin-bottom: 5mm;
@@ -310,20 +373,24 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
 
 /* Datum (Kopf der rechten Seite) */
 .menu-date {
-  font-size: var(--fs-body);
+  font-size: var(--fs-date);
   font-weight: 700;
+  margin-top: var(--off-date);
   margin-bottom: 5mm;
 }
 
 /* Gänge – linksbündig, kompakt */
-.courses { display: flex; flex-direction: column; }
+.courses {
+  display: flex; flex-direction: column;
+  margin-top: var(--off-courses);
+}
 .course-block {
   font-size: var(--fs-body);
   line-height: var(--lh-body);
-  margin-bottom: 3mm;
+  margin-bottom: var(--gap-course);
 }
 .course-block .alt-row > div { margin-bottom: 0; }
-.course-block .alt-row + .alt-sep { margin-top: 2mm; }
+.course-block .alt-row + .alt-sep { margin-top: var(--gap-alt); }
 
 /* Einzeilige Multi-Sprach-Zeile (z. B. "Salat Buffet - Buffet de salades - Salad buffet") */
 .course-block.inline .alt-row {
@@ -334,11 +401,14 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
 .course-block.inline .alt-row .lang-en { display: inline; }
 .course-block.inline .alt-row .sep { margin: 0 .35em; }
 
-.course-sep { margin: 3mm 0; letter-spacing: 3px; }
-.alt-sep { margin: 1.5mm 0; font-size: var(--fs-body); font-weight: 700; }
+.course-sep { margin: var(--gap-course-sep) 0; letter-spacing: 3px; }
+.alt-sep { margin: var(--gap-alt) 0; font-size: var(--fs-body); font-weight: 700; }
 
 /* Preise – unten auf der rechten Seite, Zeile mit CHF rechts */
-.menu-prices { margin-top: auto; padding-top: 6mm; }
+.menu-prices {
+  margin-top: auto;
+  padding-top: calc(6mm + var(--off-prices));
+}
 .menu-prices .price-line {
   display: grid; grid-template-columns: 1fr auto;
   align-items: baseline;
@@ -434,6 +504,57 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
       </div>
     </div>
 
+    <!-- Layout-Einstellungen -->
+    <div class="section">
+      <h2>Layout &amp; Schrift</h2>
+
+      <details open>
+        <summary style="cursor:pointer; font-size:11px; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px;">Schriftgrößen (pt)</summary>
+        <div class="slider-row"><label>Text</label><input type="range" data-var="--fs-body" data-unit="pt" min="7" max="14" step="0.5" value="10" /><span class="val">10</span></div>
+        <div class="slider-row"><label>Titel</label><input type="range" data-var="--fs-title" data-unit="pt" min="9" max="18" step="0.5" value="11" /><span class="val">11</span></div>
+        <div class="slider-row"><label>Datum</label><input type="range" data-var="--fs-date" data-unit="pt" min="8" max="16" step="0.5" value="11" /><span class="val">11</span></div>
+        <div class="slider-row"><label>Zeilenh.</label><input type="range" data-var="--lh-body" data-unit="" min="1.0" max="1.6" step="0.05" value="1.3" /><span class="val">1.3</span></div>
+      </details>
+
+      <details>
+        <summary style="cursor:pointer; font-size:11px; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin:10px 0 8px;">Seitenränder (mm)</summary>
+        <div class="slider-row"><label>Oben</label><input type="range" data-var="--pad-top" data-unit="mm" min="8" max="30" step="0.5" value="15.8" /><span class="val">15.8</span></div>
+        <div class="slider-row"><label>Unten</label><input type="range" data-var="--pad-bottom" data-unit="mm" min="8" max="30" step="0.5" value="14" /><span class="val">14</span></div>
+        <div class="slider-row"><label>Seite</label><input type="range" data-var="--pad-side" data-unit="mm" min="10" max="40" step="0.5" value="25.4" /><span class="val">25.4</span></div>
+        <div class="slider-row"><label>Falz</label><input type="range" data-var="--col-gap" data-unit="mm" min="0" max="30" step="0.5" value="12.5" /><span class="val">12.5</span></div>
+      </details>
+
+      <details>
+        <summary style="cursor:pointer; font-size:11px; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin:10px 0 8px;">Abstände (mm)</summary>
+        <div class="slider-row"><label>Welcome</label><input type="range" data-var="--gap-welcome" data-unit="mm" min="1" max="15" step="0.5" value="3.5" /><span class="val">3.5</span></div>
+        <div class="slider-row"><label>Gänge</label><input type="range" data-var="--gap-course" data-unit="mm" min="0" max="10" step="0.5" value="3" /><span class="val">3</span></div>
+        <div class="slider-row"><label>***</label><input type="range" data-var="--gap-course-sep" data-unit="mm" min="0" max="10" step="0.5" value="3" /><span class="val">3</span></div>
+        <div class="slider-row"><label>oder</label><input type="range" data-var="--gap-alt" data-unit="mm" min="0" max="8" step="0.5" value="2" /><span class="val">2</span></div>
+        <div class="slider-row"><label>Sektion</label><input type="range" data-var="--gap-section" data-unit="mm" min="2" max="20" step="0.5" value="6" /><span class="val">6</span></div>
+      </details>
+
+      <details>
+        <summary style="cursor:pointer; font-size:11px; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin:10px 0 8px;">Feinjustage ± (mm)</summary>
+        <div class="nudge-row" data-var="--off-welcome"><label>Welcome</label><button class="btn small secondary" data-step="-1">−</button><span class="val">0</span><button class="btn small secondary" data-step="1">+</button></div>
+        <div class="nudge-row" data-var="--off-wine"><label>Wein</label><button class="btn small secondary" data-step="-1">−</button><span class="val">0</span><button class="btn small secondary" data-step="1">+</button></div>
+        <div class="nudge-row" data-var="--off-date"><label>Datum</label><button class="btn small secondary" data-step="-1">−</button><span class="val">0</span><button class="btn small secondary" data-step="1">+</button></div>
+        <div class="nudge-row" data-var="--off-courses"><label>Gänge</label><button class="btn small secondary" data-step="-1">−</button><span class="val">0</span><button class="btn small secondary" data-step="1">+</button></div>
+        <div class="nudge-row" data-var="--off-prices"><label>Preise</label><button class="btn small secondary" data-step="-1">−</button><span class="val">0</span><button class="btn small secondary" data-step="1">+</button></div>
+      </details>
+
+      <details>
+        <summary style="cursor:pointer; font-size:11px; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin:10px 0 8px;">Hilfslinien</summary>
+        <div class="check-row"><label><input type="checkbox" data-guide="show-grid" /> Raster anzeigen</label></div>
+        <div class="slider-row"><label>Raster</label><input type="range" data-var="--grid-size" data-unit="mm" min="1" max="20" step="0.5" value="5" /><span class="val">5</span></div>
+        <div class="check-row"><label><input type="checkbox" data-guide="show-margins" /> Satzspiegel</label></div>
+        <div class="check-row"><label><input type="checkbox" data-guide="show-fold" checked /> Falzlinie</label></div>
+      </details>
+
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn secondary small wide" onclick="resetLayout()">Layout zurücksetzen</button>
+      </div>
+    </div>
+
     <!-- Begrüßung -->
     <div class="section">
       <h2>Begrüßung</h2>
@@ -497,7 +618,10 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
     </div>
 
     <div id="menu-scaler">
-      <div id="menu-frame" class="font-avenir">
+      <div id="menu-frame" class="font-avenir show-fold">
+        <div class="guide-grid"></div>
+        <div class="guide-margins"></div>
+        <div class="guide-fold"></div>
         <div class="menu-inner" id="menu-inner"></div>
         <div id="overflow-badge">Textüberlauf – Inhalt kürzen</div>
       </div>
@@ -1267,6 +1391,126 @@ document.getElementById('date-de').addEventListener('input', e => { state.date.d
 document.getElementById('zoom').addEventListener('input', applyZoom);
 
 /* =========================================================
+   LAYOUT-EINSTELLUNGEN (Slider, Nudges, Hilfslinien)
+   Persistiert in localStorage.
+   ========================================================= */
+const LAYOUT_STORE_KEY = 'alpenhof_layout_v1';
+const layoutState = {
+  vars: {},      // CSS-Variablen: { '--fs-body': '10pt', ... }
+  offsets: {},   // Nudge-Werte in mm: { '--off-welcome': 0, ... }
+  guides: { 'show-grid': false, 'show-margins': false, 'show-fold': true }
+};
+
+function applyLayout() {
+  const frame = document.getElementById('menu-frame');
+  // CSS-Variablen (Schriftgrößen, Margins, Abstände)
+  Object.entries(layoutState.vars).forEach(([k, v]) => frame.style.setProperty(k, v));
+  // Offsets in mm
+  Object.entries(layoutState.offsets).forEach(([k, v]) => frame.style.setProperty(k, v + 'mm'));
+  // Guides
+  ['show-grid', 'show-margins', 'show-fold'].forEach(g => {
+    frame.classList.toggle(g, !!layoutState.guides[g]);
+  });
+}
+
+function saveLayout() {
+  try { localStorage.setItem(LAYOUT_STORE_KEY, JSON.stringify(layoutState)); } catch(e) {}
+}
+
+function loadLayout() {
+  try {
+    const raw = localStorage.getItem(LAYOUT_STORE_KEY);
+    if (!raw) return;
+    const loaded = JSON.parse(raw);
+    Object.assign(layoutState.vars, loaded.vars || {});
+    Object.assign(layoutState.offsets, loaded.offsets || {});
+    Object.assign(layoutState.guides, loaded.guides || {});
+  } catch(e) {}
+}
+
+function initLayoutControls() {
+  // Slider
+  document.querySelectorAll('.slider-row input[type=range]').forEach(input => {
+    const cssVar = input.dataset.var;
+    const unit   = input.dataset.unit || '';
+    const valEl  = input.parentElement.querySelector('.val');
+
+    // Gespeicherten Wert anwenden (falls vorhanden)
+    if (layoutState.vars[cssVar]) {
+      const numeric = parseFloat(layoutState.vars[cssVar]);
+      if (!isNaN(numeric)) { input.value = numeric; valEl.textContent = numeric; }
+    } else {
+      layoutState.vars[cssVar] = input.value + unit;
+      valEl.textContent = input.value;
+    }
+
+    input.addEventListener('input', () => {
+      valEl.textContent = input.value;
+      layoutState.vars[cssVar] = input.value + unit;
+      applyLayout();
+      saveLayout();
+      renderPreview();
+    });
+  });
+
+  // Nudges
+  document.querySelectorAll('.nudge-row').forEach(row => {
+    const cssVar = row.dataset.var;
+    const valEl  = row.querySelector('.val');
+    if (!(cssVar in layoutState.offsets)) layoutState.offsets[cssVar] = 0;
+    valEl.textContent = layoutState.offsets[cssVar];
+
+    row.querySelectorAll('button[data-step]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const step = parseFloat(btn.dataset.step);
+        layoutState.offsets[cssVar] = Math.max(-50, Math.min(50, layoutState.offsets[cssVar] + step));
+        valEl.textContent = layoutState.offsets[cssVar];
+        applyLayout();
+        saveLayout();
+        renderPreview();
+      });
+    });
+  });
+
+  // Guides (Checkboxen)
+  document.querySelectorAll('input[type=checkbox][data-guide]').forEach(cb => {
+    const g = cb.dataset.guide;
+    cb.checked = !!layoutState.guides[g];
+    cb.addEventListener('change', () => {
+      layoutState.guides[g] = cb.checked;
+      applyLayout();
+      saveLayout();
+    });
+  });
+}
+
+function resetLayout() {
+  try { localStorage.removeItem(LAYOUT_STORE_KEY); } catch(e) {}
+  // Alle inline-gesetzten Variablen entfernen
+  const frame = document.getElementById('menu-frame');
+  [...frame.style].forEach(p => { if (p.startsWith('--')) frame.style.removeProperty(p); });
+  // State resetten
+  layoutState.vars = {};
+  layoutState.offsets = {};
+  layoutState.guides = { 'show-grid': false, 'show-margins': false, 'show-fold': true };
+  // Slider auf Default-Werte (HTML-value-Attribut)
+  document.querySelectorAll('.slider-row input[type=range]').forEach(input => {
+    input.value = input.getAttribute('value');
+    input.dispatchEvent(new Event('input'));
+  });
+  document.querySelectorAll('.nudge-row').forEach(row => {
+    const v = row.dataset.var;
+    layoutState.offsets[v] = 0;
+    row.querySelector('.val').textContent = '0';
+  });
+  document.querySelectorAll('input[type=checkbox][data-guide]').forEach(cb => {
+    cb.checked = cb.dataset.guide === 'show-fold';
+  });
+  applyLayout();
+  renderPreview();
+}
+
+/* =========================================================
    INIT + BEISPIEL
    ========================================================= */
 function loadExample() {
@@ -1377,6 +1621,9 @@ function clearAll() {
 
 // Initialisierung
 checkFonts();
+loadLayout();
+initLayoutControls();
+applyLayout();
 loadExample();
 applyZoom();
 </script>
