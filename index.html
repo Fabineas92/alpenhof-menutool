@@ -342,26 +342,6 @@ details[open] > summary::before { content: '▾ '; }
 }
 .draggable:hover > .drag-handle { opacity: 1; }
 
-/* Welcome/Date brauchen auch einen Handle */
-.menu-date.draggable::before,
-.menu-title.draggable::before,
-.courses.draggable::before {
-  content: '';
-  position: absolute; top: 0; left: -6mm;
-  width: 4mm; height: 4mm;
-  background:
-    linear-gradient(#5b6d4e, #5b6d4e) center/2mm 1px no-repeat,
-    linear-gradient(#5b6d4e, #5b6d4e) center/1px 2mm no-repeat;
-  border: 1px solid rgba(91,109,78,.5);
-  border-radius: 50%;
-  cursor: ns-resize;
-  opacity: 0;
-  transition: opacity .15s;
-  z-index: 6;
-}
-.menu-date.draggable:hover::before,
-.menu-title.draggable:hover::before,
-.courses.draggable:hover::before { opacity: 1; }
 
 #menu-frame.font-semplicita {
   --font-base: 'Semplicita Pro', 'Semplicita Pro Bold', 'Georgia', serif;
@@ -402,6 +382,7 @@ details[open] > summary::before { content: '▾ '; }
   margin: 0;
   padding: 0 0 5mm 0;
 }
+.menu-date { transform: translateY(var(--off-date)); }
 .menu-title .sep { margin: 0 .25em; }
 .menu-title .lang-de,
 .menu-title .lang-fr,
@@ -409,8 +390,9 @@ details[open] > summary::before { content: '▾ '; }
 
 /* Welcome-Block */
 .welcome-block {
-  margin-top: var(--off-welcome);
+  transform: translateY(var(--off-welcome));
   margin-bottom: var(--gap-section);
+  will-change: transform;
 }
 .welcome-block p {
   margin: 0 0 calc(var(--gap-lang)) 0;
@@ -421,7 +403,7 @@ details[open] > summary::before { content: '▾ '; }
 .welcome-block .lang-group:last-child { margin-bottom: 0; }
 
 /* Weinempfehlung – im Footer-Grid, exakt gleiche Höhe wie Preise */
-.wine-section { padding-top: var(--off-wine); }
+.wine-section { transform: translateY(var(--off-wine)); }
 .wine-section .section-head {
   font-size: var(--fs-body); font-weight: 700;
   margin-bottom: 5mm;
@@ -441,7 +423,7 @@ details[open] > summary::before { content: '▾ '; }
 /* Gänge – linksbündig, kompakt */
 .courses {
   display: flex; flex-direction: column;
-  margin-top: var(--off-courses);
+  transform: translateY(var(--off-courses));
 }
 .course-block {
   font-size: var(--fs-body);
@@ -473,7 +455,7 @@ details[open] > summary::before { content: '▾ '; }
 .alt-sep { margin: var(--gap-alt) 0; font-size: var(--fs-body); font-weight: 700; }
 
 /* Preise – im Footer-Grid, exakt gleiche Höhe wie Wein */
-.menu-prices { padding-top: var(--off-prices); }
+.menu-prices { transform: translateY(var(--off-prices)); }
 .menu-prices .price-line {
   display: grid; grid-template-columns: 1fr auto;
   align-items: baseline;
@@ -1049,7 +1031,7 @@ function renderPreview() {
   // ============ LINKE SEITE ============
   // HEADER (Titel WILLKOMMEN – BIENVENUE – WELCOME)
   const leftHeader = `
-    <div class="menu-title" data-section="title">
+    <div class="menu-title">
       <span class="lang-de" contenteditable="true" data-path="title.de" data-single="1">${escapeHtml(state.title.de)}</span>
       <span class="sep">–</span>
       <span class="lang-fr" contenteditable="true" data-path="title.fr" data-single="1">${escapeHtml(state.title.fr)}</span>
@@ -1263,14 +1245,14 @@ async function translateAll() {
     state.wineTitle.en = await translateText(state.wineTitle.de, 'en');
   }
 
-  // Weine (Name + Info, aber Zahlen behalten wir bei)
+  // Weine (Name übersetzen, Preis + Herkunft identisch übernehmen)
   for (const w of state.wines) {
     if (w.de.name) {
       w.fr.name = await translateText(w.de.name, 'fr');
       w.en.name = await translateText(w.de.name, 'en');
     }
-    w.fr.info = w.de.info; // Preis/Herkunft identisch
-    w.en.info = w.de.info;
+    w.fr.price = w.de.price;  w.en.price = w.de.price;
+    w.fr.origin = w.de.origin; w.en.origin = w.de.origin;
   }
 
   // Datum: bleibt typischerweise gleich bzw. wird übersetzt
@@ -1397,7 +1379,8 @@ function exportExcel() {
   rows.push(['Begrüßung', state.welcome.de, state.welcome.fr, state.welcome.en]);
   rows.push(['Wein-Titel', state.wineTitle.de, state.wineTitle.fr, state.wineTitle.en]);
   state.wines.forEach((w, i) => {
-    rows.push([`Wein ${i+1}`, `${w.de.name} — ${w.de.info}`, `${w.fr.name} — ${w.fr.info}`, `${w.en.name} — ${w.en.info}`]);
+    const fmt = lang => `${w[lang].name} — ${w[lang].price} ${w[lang].origin}`.trim();
+    rows.push([`Wein ${i+1}`, fmt('de'), fmt('fr'), fmt('en')]);
   });
   rows.push(['Datum', state.date.de, state.date.fr, state.date.en]);
   state.courses.forEach((c, ci) => {
@@ -1405,7 +1388,10 @@ function exportExcel() {
       rows.push([`Gang ${ci+1} / Alt. ${ai+1}`, a.de, a.fr, a.en]);
     });
   });
-  state.prices.forEach((p, i) => rows.push([`Preis ${i+1}`, p, p, p]));
+  state.prices.forEach((p, i) => {
+    const full = `${p.text || ''}  ${p.amount || ''}`.trim();
+    rows.push([`Preis ${i+1}`, full, full, full]);
+  });
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 20 }, { wch: 55 }, { wch: 55 }, { wch: 55 }];
@@ -1442,22 +1428,6 @@ function preventCommaWidows(text) {
 /* Rendert eine Menü-Zeile als HTML mit Widow-Control. */
 function renderMenuLineHTML(text) {
   return escapeHtml(preventCommaWidows(text));
-}
-
-/* Trennt Wein-Info in Preis (Zahl am Anfang) + Herkunft (Rest) */
-function splitWinePrice(info) {
-  if (!info) return { price: '', origin: '' };
-  const m = /^\s*([\d.,]+)\s*[–\-—]?\s*(.*)$/.exec(info);
-  if (m) return { price: m[1], origin: m[2].trim() };
-  return { price: '', origin: info };
-}
-
-/* Trennt Preis-Zeile ("5 Gänge / 5 Plats / 5 Courses     CHF 78")
-   in Text + CHF-Betrag (für right-aligned CHF-Spalte) */
-function splitPriceLine(line) {
-  const m = /^(.*?)(CHF\s*[\d.,]+|\d+\.?\d*\s*CHF|€\s*[\d.,]+)\s*$/i.exec(line);
-  if (m) return { text: m[1].trim(), price: m[2].trim() };
-  return { text: line, price: '' };
 }
 
 /* =========================================================
@@ -1785,7 +1755,7 @@ function resetLayout() {
   // State resetten
   layoutState.vars = {};
   layoutState.offsets = {};
-  layoutState.guides = { 'show-grid': false, 'show-margins': false, 'show-fold': true };
+  layoutState.guides = { 'show-grid': false, 'show-margins': false, 'show-fold': true, 'show-baseline': false };
   // Slider auf Default-Werte (HTML-value-Attribut)
   document.querySelectorAll('.slider-row input[type=range]').forEach(input => {
     input.value = input.getAttribute('value');
