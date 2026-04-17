@@ -373,34 +373,39 @@ details[open] > summary::before { content: '▾ '; }
 .lang-fr { font-style: italic;  font-weight: 400; }
 .lang-en { font-style: normal; font-weight: 700; }
 
-/* Zwei feste Seiten (aufklappbar, Falz in der Mitte) — wie Original-Foto */
+/* Zwei feste Seiten (aufklappbar, Falz) — 3×2 Grid, damit die Reihen
+   (Header / Body / Footer) auf BEIDEN Seiten exakt gleich hoch sind.
+   Header = WILLKOMMEN | Datum (gleiche Höhe)
+   Body   = Welcome    | Gänge
+   Footer = Wein       | Preise (gleiche Höhe) */
 .menu-inner {
   height: 100%;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--col-gap);
+  grid-template-rows: auto 1fr auto;
+  column-gap: var(--col-gap);
+  row-gap: 0;
 }
-.menu-page {
-  display: flex; flex-direction: column;
-  height: 100%;
-  text-align: left;
-}
-.menu-page.left  { padding-right: 4mm; }
-.menu-page.right { padding-left: 4mm; }
+.menu-cell { text-align: left; min-width: 0; }
+.menu-cell.left  { padding-right: 4mm; }
+.menu-cell.right { padding-left: 4mm; }
+.menu-cell.body  { overflow: hidden; }
 
-/* Titel (Begrüßung) — linksbündig, fett */
-.menu-title {
-  font-size: var(--fs-section);
+/* Header (WILLKOMMEN links und Datum rechts): identische Metriken
+   für pixel-exakt gleiche Startposition auf beiden Seiten. */
+.menu-title,
+.menu-date {
+  font-size: var(--fs-title);
   font-weight: 700;
-  margin-bottom: 4mm;
-  letter-spacing: .3px;
+  line-height: var(--lh-tight);
+  letter-spacing: 0;
+  margin: 0;
+  padding: 0 0 5mm 0;
 }
 .menu-title .sep { margin: 0 .25em; }
-/* Der Titel nutzt einheitliche schwarze Schrift (wie im Foto),
-   Sprachstile werden trotzdem weitergegeben für Konsistenz. */
-.menu-title .lang-de { font-weight: 700; }
-.menu-title .lang-fr { font-weight: 700; font-style: normal; }
-.menu-title .lang-en { font-weight: 700; }
+.menu-title .lang-de,
+.menu-title .lang-fr,
+.menu-title .lang-en { font-weight: 700; font-style: normal; }
 
 /* Welcome-Block */
 .welcome-block {
@@ -415,11 +420,8 @@ details[open] > summary::before { content: '▾ '; }
 .welcome-block .lang-group { margin-bottom: var(--gap-welcome); }
 .welcome-block .lang-group:last-child { margin-bottom: 0; }
 
-/* Weinempfehlung – linksbündig, unten auf der linken Seite */
-.wine-section {
-  margin-top: auto;
-  padding-top: var(--off-wine);
-}
+/* Weinempfehlung – im Footer-Grid, exakt gleiche Höhe wie Preise */
+.wine-section { padding-top: var(--off-wine); }
 .wine-section .section-head {
   font-size: var(--fs-body); font-weight: 700;
   margin-bottom: 5mm;
@@ -436,14 +438,6 @@ details[open] > summary::before { content: '▾ '; }
 .wine-list .wine .wine-price { font-weight: 700; padding-left: 6mm; }
 .wine-list .wine .wine-info  { grid-column: 1 / -1; font-weight: 400; }
 
-/* Datum (Kopf der rechten Seite) */
-.menu-date {
-  font-size: var(--fs-date);
-  font-weight: 700;
-  margin-top: var(--off-date);
-  margin-bottom: 5mm;
-}
-
 /* Gänge – linksbündig, kompakt */
 .courses {
   display: flex; flex-direction: column;
@@ -457,6 +451,15 @@ details[open] > summary::before { content: '▾ '; }
 .course-block .alt-row > div { margin-bottom: 0; }
 .course-block .alt-row + .alt-sep { margin-top: var(--gap-alt); }
 
+/* Widow-Control (Anti-Waise): Browser-Hint + non-breaking spaces
+   (die schon im HTML sitzen) halten Komma-Gruppen zusammen. */
+.course-block .nowidow {
+  text-wrap: pretty;
+  hyphens: manual;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
 /* Einzeilige Multi-Sprach-Zeile (z. B. "Salat Buffet - Buffet de salades - Salad buffet") */
 .course-block.inline .alt-row {
   display: block;
@@ -469,11 +472,8 @@ details[open] > summary::before { content: '▾ '; }
 .course-sep { margin: var(--gap-course-sep) 0; letter-spacing: 3px; }
 .alt-sep { margin: var(--gap-alt) 0; font-size: var(--fs-body); font-weight: 700; }
 
-/* Preise – unten auf der rechten Seite, Zeile mit CHF rechts */
-.menu-prices {
-  margin-top: auto;
-  padding-top: calc(6mm + var(--off-prices));
-}
+/* Preise – im Footer-Grid, exakt gleiche Höhe wie Wein */
+.menu-prices { padding-top: var(--off-prices); }
 .menu-prices .price-line {
   display: grid; grid-template-columns: 1fr auto;
   align-items: baseline;
@@ -1047,33 +1047,34 @@ function renderPreview() {
   }
 
   // ============ LINKE SEITE ============
-  const leftParts = [];
-
-  // Titel "WILLKOMMEN – BIENVENUE - WELCOME"
-  leftParts.push(`
-    <div class="menu-title draggable" data-section="welcome">
+  // HEADER (Titel WILLKOMMEN – BIENVENUE – WELCOME)
+  const leftHeader = `
+    <div class="menu-title" data-section="title">
       <span class="lang-de" contenteditable="true" data-path="title.de" data-single="1">${escapeHtml(state.title.de)}</span>
       <span class="sep">–</span>
       <span class="lang-fr" contenteditable="true" data-path="title.fr" data-single="1">${escapeHtml(state.title.fr)}</span>
       <span class="sep">-</span>
       <span class="lang-en" contenteditable="true" data-path="title.en" data-single="1">${escapeHtml(state.title.en)}</span>
     </div>
-  `);
+  `;
 
-  // Welcome (3 Sprachblöcke untereinander, mit Leerzeile dazwischen)
+  // BODY (Welcome – 3 Sprachblöcke)
+  const leftBody = [];
   if (state.welcome.de || state.welcome.fr || state.welcome.en) {
-    leftParts.push('<div class="welcome-block">');
-    leftParts.push(`<div class="lang-group lang-de" contenteditable="true" data-path="welcome.de" data-multi="1">${renderParagraphsPlain(state.welcome.de)}</div>`);
-    leftParts.push(`<div class="lang-group lang-fr" contenteditable="true" data-path="welcome.fr" data-multi="1">${renderParagraphsPlain(state.welcome.fr)}</div>`);
-    leftParts.push(`<div class="lang-group lang-en" contenteditable="true" data-path="welcome.en" data-multi="1">${renderParagraphsPlain(state.welcome.en)}</div>`);
-    leftParts.push('</div>');
+    leftBody.push('<div class="welcome-block draggable" data-section="welcome">');
+    leftBody.push('<div class="drag-handle" title="Welcome verschieben"></div>');
+    leftBody.push(`<div class="lang-group lang-de" contenteditable="true" data-path="welcome.de" data-multi="1">${renderParagraphsPlain(state.welcome.de)}</div>`);
+    leftBody.push(`<div class="lang-group lang-fr" contenteditable="true" data-path="welcome.fr" data-multi="1">${renderParagraphsPlain(state.welcome.fr)}</div>`);
+    leftBody.push(`<div class="lang-group lang-en" contenteditable="true" data-path="welcome.en" data-multi="1">${renderParagraphsPlain(state.welcome.en)}</div>`);
+    leftBody.push('</div>');
   }
 
-  // Wein-Sektion (unten links, margin-top: auto)
+  // FOOTER (Wein-Sektion)
+  const leftFooter = [];
   if (state.wines.length) {
-    leftParts.push(`
+    leftFooter.push(`
       <div class="wine-section draggable" data-section="wine">
-        <div class="drag-handle" title="Sektion vertikal verschieben"></div>
+        <div class="drag-handle" title="Wein verschieben"></div>
         <div class="section-head">
           <span class="lang-de" contenteditable="true" data-path="wineTitle.de" data-single="1">${escapeHtml(state.wineTitle.de)}</span>
           <span class="sep">-</span>
@@ -1095,25 +1096,25 @@ function renderPreview() {
   }
 
   // ============ RECHTE SEITE ============
-  const rightParts = [];
+  // HEADER (Datum)
+  const rightHeader = `
+    <div class="menu-date lang-de" data-section="date" contenteditable="true" data-path="date.de" data-single="1">${escapeHtml(state.date.de || '')}</div>
+  `;
 
-  // Datum oben rechts
-  if (state.date.de !== undefined) {
-    rightParts.push(`<div class="menu-date lang-de draggable" data-section="date" contenteditable="true" data-path="date.de" data-single="1">${escapeHtml(state.date.de)}</div>`);
-  }
-
-  // Gänge
+  // BODY (Gänge)
+  const rightBody = [];
   if (state.courses.length) {
-    rightParts.push('<div class="courses draggable" data-section="courses">');
+    rightBody.push('<div class="courses draggable" data-section="courses">');
+    rightBody.push('<div class="drag-handle" title="Gänge verschieben"></div>');
     state.courses.forEach((c, ci) => {
       const singleShort = c.alts.length === 1 && isInlineAlt(c.alts[0]);
-      rightParts.push(`<div class="course-block ${singleShort ? 'inline' : ''}">`);
+      rightBody.push(`<div class="course-block ${singleShort ? 'inline' : ''}">`);
       c.alts.forEach((a, ai) => {
         if (ai > 0) {
-          rightParts.push('<div class="alt-sep"><span class="lang-de">oder</span> / <span class="lang-fr">ou</span> / <span class="lang-en">or</span></div>');
+          rightBody.push('<div class="alt-sep"><span class="lang-de">oder</span> / <span class="lang-fr">ou</span> / <span class="lang-en">or</span></div>');
         }
         if (singleShort) {
-          rightParts.push(`
+          rightBody.push(`
             <div class="alt-row">
               <span class="lang-de" contenteditable="true" data-path="courses[${ci}].alts[${ai}].de" data-single="1">${escapeHtml(a.de)}</span>
               <span class="sep">-</span>
@@ -1123,53 +1124,58 @@ function renderPreview() {
             </div>
           `);
         } else {
-          rightParts.push(`
+          rightBody.push(`
             <div class="alt-row">
-              <div class="lang-de" contenteditable="true" data-path="courses[${ci}].alts[${ai}].de" data-multi="1">${escapeHtml(a.de)}</div>
-              <div class="lang-fr" contenteditable="true" data-path="courses[${ci}].alts[${ai}].fr" data-multi="1">${escapeHtml(a.fr)}</div>
-              <div class="lang-en" contenteditable="true" data-path="courses[${ci}].alts[${ai}].en" data-multi="1">${escapeHtml(a.en)}</div>
+              <div class="lang-de nowidow" contenteditable="true" data-path="courses[${ci}].alts[${ai}].de" data-multi="1">${renderMenuLineHTML(a.de)}</div>
+              <div class="lang-fr nowidow" contenteditable="true" data-path="courses[${ci}].alts[${ai}].fr" data-multi="1">${renderMenuLineHTML(a.fr)}</div>
+              <div class="lang-en nowidow" contenteditable="true" data-path="courses[${ci}].alts[${ai}].en" data-multi="1">${renderMenuLineHTML(a.en)}</div>
             </div>
           `);
         }
       });
-      rightParts.push('</div>');
+      rightBody.push('</div>');
       if (ci < state.courses.length - 1) {
-        rightParts.push('<div class="course-sep">***</div>');
+        rightBody.push('<div class="course-sep">***</div>');
       }
     });
-    rightParts.push('</div>');
+    rightBody.push('</div>');
   }
 
-  // Preise (unten rechts)
+  // FOOTER (Preise)
+  const rightFooter = [];
   if (state.prices.length) {
-    rightParts.push('<div class="menu-prices draggable" data-section="prices">');
-    rightParts.push('<div class="drag-handle" title="Sektion vertikal verschieben"></div>');
+    rightFooter.push('<div class="menu-prices draggable" data-section="prices">');
+    rightFooter.push('<div class="drag-handle" title="Preise verschieben"></div>');
     state.prices.forEach((p, i) => {
-      rightParts.push(`
+      rightFooter.push(`
         <div class="price-line">
           <span class="price-text" contenteditable="true" data-path="prices[${i}].text" data-single="1">${escapeHtml(p.text || '')}</span>
           <span class="price-amount" contenteditable="true" data-path="prices[${i}].amount" data-single="1">${escapeHtml(p.amount || '')}</span>
         </div>
       `);
     });
-    rightParts.push('</div>');
+    rightFooter.push('</div>');
   }
 
+  // 3×2 Grid: Header (Titel | Datum), Body (Welcome | Gänge), Footer (Wein | Preise)
   inner.innerHTML = `
-    <div class="menu-page left">${leftParts.join('\n')}</div>
-    <div class="menu-page right">${rightParts.join('\n')}</div>
+    <div class="menu-cell left header">${leftHeader || ''}</div>
+    <div class="menu-cell right header">${rightHeader || ''}</div>
+    <div class="menu-cell left body">${leftBody.join('\n')}</div>
+    <div class="menu-cell right body">${rightBody.join('\n')}</div>
+    <div class="menu-cell left footer">${leftFooter.join('\n')}</div>
+    <div class="menu-cell right footer">${rightFooter.join('\n')}</div>
   `;
 
   attachInlineEditHandlers();
   attachDragHandlers();
 
-  // Overflow-Check: pro Seite (links/rechts) prüfen, ob Inhalt über
-  // die verfügbare Höhe hinausgeht.
+  // Overflow-Check: die Body-Zellen (mit overflow: hidden) prüfen
   requestAnimationFrame(() => {
-    const pages = inner.querySelectorAll('.menu-page');
+    const cells = inner.querySelectorAll('.menu-cell.body');
     let overflow = false;
-    pages.forEach(p => {
-      if (p.scrollHeight > p.clientHeight + 2) overflow = true;
+    cells.forEach(c => {
+      if (c.scrollHeight > c.clientHeight + 2) overflow = true;
     });
     const badge = document.getElementById('overflow-badge');
     badge.classList.toggle('visible', overflow);
@@ -1209,10 +1215,10 @@ function validateFormat() {
       pushMsg(msgs, 'warn', `Wein ${i+1}: FR/EN-Name fehlt.`);
   });
 
-  // Formatprüfung: Overflow pro Seite
-  const pages = document.querySelectorAll('#menu-inner .menu-page');
-  pages.forEach((p, idx) => {
-    if (p.scrollHeight > p.clientHeight + 2) {
+  // Formatprüfung: Overflow pro Body-Cell
+  const cells = document.querySelectorAll('#menu-inner .menu-cell.body');
+  cells.forEach((c, idx) => {
+    if (c.scrollHeight > c.clientHeight + 2) {
       pushMsg(msgs, 'error', `Textüberlauf auf ${idx === 0 ? 'linker' : 'rechter'} Seite. Inhalt kürzen.`);
     }
   });
@@ -1353,7 +1359,26 @@ async function exportPDF() {
 
   showMessages([{ type: 'ok', text: 'Erzeuge PDF ...' }]);
 
-  const canvas = await html2canvas(frame, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+  // Guides im PDF unsichtbar machen
+  const hadGuides = {
+    grid: frame.classList.contains('show-grid'),
+    margins: frame.classList.contains('show-margins'),
+    fold: frame.classList.contains('show-fold'),
+    baseline: frame.classList.contains('show-baseline')
+  };
+  frame.classList.remove('show-grid', 'show-margins', 'show-fold', 'show-baseline');
+
+  // Scale 4 = scharfer Druck (300+ DPI bei 297mm)
+  const canvas = await html2canvas(frame, {
+    scale: 4, useCORS: true, backgroundColor: '#ffffff',
+    letterRendering: true, imageTimeout: 0
+  });
+
+  // Guides wiederherstellen
+  if (hadGuides.grid)     frame.classList.add('show-grid');
+  if (hadGuides.margins)  frame.classList.add('show-margins');
+  if (hadGuides.fold)     frame.classList.add('show-fold');
+  if (hadGuides.baseline) frame.classList.add('show-baseline');
   frame.style.transform = oldTransform;
 
   const { jsPDF } = window.jspdf;
@@ -1404,6 +1429,19 @@ function renderParagraphsPlain(text) {
   return text.split(/\n\s*\n|\n/).map(p =>
     `<p>${escapeHtml(p) || '<br>'}</p>`
   ).join('');
+}
+
+/* Widow-Control: Hält Wörter INNERHALB einer Komma-Gruppe zusammen
+   (ersetzt Leerzeichen durch non-breaking spaces). Zeilenumbrüche
+   passieren dann NUR nach Kommas, nie mitten in einer Gruppe. */
+function preventCommaWidows(text) {
+  if (!text) return '';
+  return text.split(',').map(group => group.replace(/ /g, '\u00A0')).join(', ');
+}
+
+/* Rendert eine Menü-Zeile als HTML mit Widow-Control. */
+function renderMenuLineHTML(text) {
+  return escapeHtml(preventCommaWidows(text));
 }
 
 /* Trennt Wein-Info in Preis (Zahl am Anfang) + Herkunft (Rest) */
@@ -1472,6 +1510,18 @@ function attachInlineEditHandlers() {
     el.addEventListener('input', onInlineEdit);
     el.addEventListener('keydown', onInlineEditKeydown);
     el.addEventListener('paste', onInlineEditPaste);
+    // nowidow-Felder: beim Fokus nbsp → space (bequemes Editieren),
+    // beim Blur zurück zu nbsp (Widow-Control aktiv).
+    if (el.classList.contains('nowidow')) {
+      el.addEventListener('focus', () => {
+        const txt = getStatePath(el.dataset.path) || '';
+        el.textContent = txt;
+      });
+      el.addEventListener('blur', () => {
+        const txt = getStatePath(el.dataset.path) || '';
+        el.innerHTML = renderMenuLineHTML(txt);
+      });
+    }
   });
 }
 
@@ -1480,14 +1530,12 @@ function onInlineEdit(e) {
   const path = el.dataset.path;
   let value;
   if (el.dataset.multi === '1') {
-    // Multi-line: innerText gibt \n / \n\n korrekt zurück
-    value = el.innerText.replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+    value = el.innerText.replace(/\u00A0/g, ' ').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
   } else {
-    value = el.innerText.replace(/[\r\n]/g, ' ').trim();
+    value = el.innerText.replace(/\u00A0/g, ' ').replace(/[\r\n]/g, ' ').trim();
   }
   setStatePath(path, value);
   saveStateDebounced();
-  // Sidebar-Input synchronisieren (falls im DOM)
   syncSidebarFromState(path);
 }
 
