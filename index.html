@@ -293,10 +293,75 @@ details[open] > summary::before { content: '▾ '; }
   background-size: var(--grid-size) var(--grid-size);
   pointer-events: none; z-index: 4;
 }
+/* Baseline: horizontale Linie an Position des unteren Satzspiegels.
+   Zeigt, dass Wein (links) und Preise (rechts) auf gleicher Höhe sind. */
+#menu-frame .guide-baseline {
+  position: absolute;
+  left: var(--pad-side); right: var(--pad-side);
+  bottom: var(--pad-bottom);
+  height: 0;
+  border-bottom: 1px dashed rgba(220,80,30,.35);
+  pointer-events: none; z-index: 5;
+}
 /* Guides sind optional – via toggles am Menu-Frame */
 #menu-frame:not(.show-fold) .guide-fold { display: none; }
 #menu-frame:not(.show-margins) .guide-margins { display: none; }
 #menu-frame:not(.show-grid) .guide-grid { display: none; }
+#menu-frame:not(.show-baseline) .guide-baseline { display: none; }
+
+/* Inline-Edit: editierbare Elemente dezent highlighten beim Hover */
+#menu-inner [contenteditable="true"] {
+  outline: none;
+  transition: background-color .15s, box-shadow .15s;
+  border-radius: 1px;
+}
+#menu-inner [contenteditable="true"]:hover {
+  background: rgba(30,140,220,.06);
+  box-shadow: 0 0 0 1px rgba(30,140,220,.18);
+}
+#menu-inner [contenteditable="true"]:focus {
+  background: rgba(30,140,220,.1);
+  box-shadow: 0 0 0 1px rgba(30,140,220,.45);
+}
+
+/* Drag-Handle für Sektionen (klein, links) */
+.draggable { position: relative; }
+.drag-handle {
+  position: absolute;
+  top: 0; left: -6mm;
+  width: 4mm; height: 4mm;
+  background:
+    linear-gradient(#5b6d4e, #5b6d4e) center/2mm 1px no-repeat,
+    linear-gradient(#5b6d4e, #5b6d4e) center/1px 2mm no-repeat;
+  border: 1px solid rgba(91,109,78,.5);
+  border-radius: 50%;
+  cursor: ns-resize;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 6;
+}
+.draggable:hover > .drag-handle { opacity: 1; }
+
+/* Welcome/Date brauchen auch einen Handle */
+.menu-date.draggable::before,
+.menu-title.draggable::before,
+.courses.draggable::before {
+  content: '';
+  position: absolute; top: 0; left: -6mm;
+  width: 4mm; height: 4mm;
+  background:
+    linear-gradient(#5b6d4e, #5b6d4e) center/2mm 1px no-repeat,
+    linear-gradient(#5b6d4e, #5b6d4e) center/1px 2mm no-repeat;
+  border: 1px solid rgba(91,109,78,.5);
+  border-radius: 50%;
+  cursor: ns-resize;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 6;
+}
+.menu-date.draggable:hover::before,
+.menu-title.draggable:hover::before,
+.courses.draggable:hover::before { opacity: 1; }
 
 #menu-frame.font-semplicita {
   --font-base: 'Semplicita Pro', 'Semplicita Pro Bold', 'Georgia', serif;
@@ -548,6 +613,7 @@ details[open] > summary::before { content: '▾ '; }
         <div class="slider-row"><label>Raster</label><input type="range" data-var="--grid-size" data-unit="mm" min="1" max="20" step="0.5" value="5" /><span class="val">5</span></div>
         <div class="check-row"><label><input type="checkbox" data-guide="show-margins" /> Satzspiegel</label></div>
         <div class="check-row"><label><input type="checkbox" data-guide="show-fold" checked /> Falzlinie</label></div>
+        <div class="check-row"><label><input type="checkbox" data-guide="show-baseline" /> Baseline (Wein ↔ Preise)</label></div>
       </details>
 
       <div class="btn-row" style="margin-top:10px;">
@@ -622,6 +688,7 @@ details[open] > summary::before { content: '▾ '; }
         <div class="guide-grid"></div>
         <div class="guide-margins"></div>
         <div class="guide-fold"></div>
+        <div class="guide-baseline"></div>
         <div class="menu-inner" id="menu-inner"></div>
         <div id="overflow-badge">Textüberlauf – Inhalt kürzen</div>
       </div>
@@ -744,10 +811,10 @@ const state = {
     en: ''
   },
   wineTitle: { de: 'Weinempfehlung', fr: 'propositions de vins', en: 'wine recommendation' },
-  wines: [], // { de:{name,info}, fr:{name,info}, en:{name,info} }
+  wines: [], // { de:{name,price,origin}, fr:{...}, en:{...} }
   date: { de: '', fr: '', en: '' },
   courses: [], // [{ alts: [ {de, fr, en}, ... ] }]
-  prices: []   // [ "5 Gänge / 5 Plats / 5 Courses CHF 78" ]
+  prices: []   // [ { text, amount } ]
 };
 
 /* =========================================================
@@ -855,13 +922,13 @@ function renderWines() {
     const div = document.createElement('div');
     div.className = 'alt';
     div.innerHTML = `
-      <label>Wein ${i+1} – Name (DE)</label>
+      <label>Wein ${i+1} – Name</label>
       <input type="text" data-wine-field="name" data-idx="${i}" value="${escapeAttr(w.de.name)}" />
-      <label>Info (Preis, Herkunft) DE</label>
-      <input type="text" data-wine-field="info" data-idx="${i}" value="${escapeAttr(w.de.info)}" />
-      <div class="btn-row">
-        <button class="btn danger small" onclick="removeWine(${i})">Entfernen</button>
+      <div class="row">
+        <div><label>Preis</label><input type="text" data-wine-field="price" data-idx="${i}" value="${escapeAttr(w.de.price || '')}" /></div>
+        <div><label>Herkunft</label><input type="text" data-wine-field="origin" data-idx="${i}" value="${escapeAttr(w.de.origin || '')}" /></div>
       </div>
+      <div class="btn-row"><button class="btn danger small" onclick="removeWine(${i})">Entfernen</button></div>
     `;
     box.appendChild(div);
   });
@@ -870,17 +937,18 @@ function renderWines() {
       const idx = +e.target.dataset.idx;
       const field = e.target.dataset.wineField;
       state.wines[idx].de[field] = e.target.value;
+      saveStateDebounced();
       renderPreview();
     });
   });
 }
 function addWine() {
   state.wines.push({
-    de: { name: '', info: '' },
-    fr: { name: '', info: '' },
-    en: { name: '', info: '' }
+    de: { name: '', price: '', origin: '' },
+    fr: { name: '', price: '', origin: '' },
+    en: { name: '', price: '', origin: '' }
   });
-  renderWines();
+  renderWines(); renderPreview();
 }
 function removeWine(i) { state.wines.splice(i, 1); renderWines(); renderPreview(); }
 
@@ -920,6 +988,7 @@ function renderCourses() {
       const ci = +e.target.dataset.course;
       const ai = +e.target.dataset.alt;
       state.courses[ci].alts[ai].de = e.target.value;
+      saveStateDebounced();
       renderPreview();
     });
   });
@@ -939,20 +1008,25 @@ function renderPrices() {
     const div = document.createElement('div');
     div.className = 'alt';
     div.innerHTML = `
-      <label>Preiszeile ${i+1} (wird 1:1 dargestellt)</label>
-      <input type="text" data-price="${i}" value="${escapeAttr(p)}" />
+      <label>Preis ${i+1} – Text / Betrag</label>
+      <div class="row">
+        <div style="flex:2"><input type="text" data-price-field="text" data-idx="${i}" value="${escapeAttr(p.text || '')}" placeholder="5 Gänge / 5 Plats / 5 Courses" /></div>
+        <div style="flex:1"><input type="text" data-price-field="amount" data-idx="${i}" value="${escapeAttr(p.amount || '')}" placeholder="CHF 78" /></div>
+      </div>
       <div class="btn-row"><button class="btn danger small" onclick="removePrice(${i})">Entfernen</button></div>
     `;
     box.appendChild(div);
   });
-  box.querySelectorAll('input[data-price]').forEach(inp => {
+  box.querySelectorAll('input[data-price-field]').forEach(inp => {
     inp.addEventListener('input', e => {
-      state.prices[+e.target.dataset.price] = e.target.value;
+      const idx = +e.target.dataset.idx;
+      state.prices[idx][e.target.dataset.priceField] = e.target.value;
+      saveStateDebounced();
       renderPreview();
     });
   });
 }
-function addPrice() { state.prices.push(''); renderPrices(); }
+function addPrice() { state.prices.push({ text: '', amount: '' }); renderPrices(); renderPreview(); }
 function removePrice(i) { state.prices.splice(i,1); renderPrices(); renderPreview(); }
 
 /* =========================================================
@@ -977,41 +1051,42 @@ function renderPreview() {
 
   // Titel "WILLKOMMEN – BIENVENUE - WELCOME"
   leftParts.push(`
-    <div class="menu-title">
-      <span class="lang-de">${escapeHtml(state.title.de)}</span>
+    <div class="menu-title draggable" data-section="welcome">
+      <span class="lang-de" contenteditable="true" data-path="title.de" data-single="1">${escapeHtml(state.title.de)}</span>
       <span class="sep">–</span>
-      <span class="lang-fr">${escapeHtml(state.title.fr)}</span>
+      <span class="lang-fr" contenteditable="true" data-path="title.fr" data-single="1">${escapeHtml(state.title.fr)}</span>
       <span class="sep">-</span>
-      <span class="lang-en">${escapeHtml(state.title.en)}</span>
+      <span class="lang-en" contenteditable="true" data-path="title.en" data-single="1">${escapeHtml(state.title.en)}</span>
     </div>
   `);
 
   // Welcome (3 Sprachblöcke untereinander, mit Leerzeile dazwischen)
   if (state.welcome.de || state.welcome.fr || state.welcome.en) {
     leftParts.push('<div class="welcome-block">');
-    leftParts.push(`<div class="lang-group">${renderParagraphs(state.welcome.de, 'de')}</div>`);
-    leftParts.push(`<div class="lang-group">${renderParagraphs(state.welcome.fr, 'fr')}</div>`);
-    leftParts.push(`<div class="lang-group">${renderParagraphs(state.welcome.en, 'en')}</div>`);
+    leftParts.push(`<div class="lang-group lang-de" contenteditable="true" data-path="welcome.de" data-multi="1">${renderParagraphsPlain(state.welcome.de)}</div>`);
+    leftParts.push(`<div class="lang-group lang-fr" contenteditable="true" data-path="welcome.fr" data-multi="1">${renderParagraphsPlain(state.welcome.fr)}</div>`);
+    leftParts.push(`<div class="lang-group lang-en" contenteditable="true" data-path="welcome.en" data-multi="1">${renderParagraphsPlain(state.welcome.en)}</div>`);
     leftParts.push('</div>');
   }
 
   // Wein-Sektion (unten links, margin-top: auto)
   if (state.wines.length) {
     leftParts.push(`
-      <div class="wine-section">
+      <div class="wine-section draggable" data-section="wine">
+        <div class="drag-handle" title="Sektion vertikal verschieben"></div>
         <div class="section-head">
-          <span class="lang-de">${escapeHtml(state.wineTitle.de)}</span>
+          <span class="lang-de" contenteditable="true" data-path="wineTitle.de" data-single="1">${escapeHtml(state.wineTitle.de)}</span>
           <span class="sep">-</span>
-          <span class="lang-fr">${escapeHtml(state.wineTitle.fr)}</span>
+          <span class="lang-fr" contenteditable="true" data-path="wineTitle.fr" data-single="1">${escapeHtml(state.wineTitle.fr)}</span>
           <span class="sep">-</span>
-          <span class="lang-en">${escapeHtml(state.wineTitle.en)}</span>
+          <span class="lang-en" contenteditable="true" data-path="wineTitle.en" data-single="1">${escapeHtml(state.wineTitle.en)}</span>
         </div>
         <div class="wine-list">
-          ${state.wines.map(w => `
+          ${state.wines.map((w, i) => `
             <div class="wine">
-              <div class="wine-name lang-de">${escapeHtml(w.de.name)}</div>
-              <div class="wine-price lang-de">${escapeHtml(splitWinePrice(w.de.info).price)}</div>
-              <div class="wine-info lang-de">${escapeHtml(splitWinePrice(w.de.info).origin)}</div>
+              <div class="wine-name lang-de" contenteditable="true" data-path="wines[${i}].de.name" data-single="1">${escapeHtml(w.de.name)}</div>
+              <div class="wine-price lang-de" contenteditable="true" data-path="wines[${i}].de.price" data-single="1">${escapeHtml(w.de.price)}</div>
+              <div class="wine-info lang-de" contenteditable="true" data-path="wines[${i}].de.origin" data-single="1">${escapeHtml(w.de.origin)}</div>
             </div>
           `).join('')}
         </div>
@@ -1023,15 +1098,14 @@ function renderPreview() {
   const rightParts = [];
 
   // Datum oben rechts
-  if (state.date.de) {
-    rightParts.push(`<div class="menu-date lang-de">${escapeHtml(state.date.de)}</div>`);
+  if (state.date.de !== undefined) {
+    rightParts.push(`<div class="menu-date lang-de draggable" data-section="date" contenteditable="true" data-path="date.de" data-single="1">${escapeHtml(state.date.de)}</div>`);
   }
 
   // Gänge
   if (state.courses.length) {
-    rightParts.push('<div class="courses">');
+    rightParts.push('<div class="courses draggable" data-section="courses">');
     state.courses.forEach((c, ci) => {
-      // Wenn der Gang genau EINE kurze Alternative hat → inline-Multi-Sprach-Zeile
       const singleShort = c.alts.length === 1 && isInlineAlt(c.alts[0]);
       rightParts.push(`<div class="course-block ${singleShort ? 'inline' : ''}">`);
       c.alts.forEach((a, ai) => {
@@ -1041,19 +1115,19 @@ function renderPreview() {
         if (singleShort) {
           rightParts.push(`
             <div class="alt-row">
-              <span class="lang-de">${escapeHtml(a.de)}</span>
+              <span class="lang-de" contenteditable="true" data-path="courses[${ci}].alts[${ai}].de" data-single="1">${escapeHtml(a.de)}</span>
               <span class="sep">-</span>
-              <span class="lang-fr">${escapeHtml(a.fr)}</span>
+              <span class="lang-fr" contenteditable="true" data-path="courses[${ci}].alts[${ai}].fr" data-single="1">${escapeHtml(a.fr)}</span>
               <span class="sep">-</span>
-              <span class="lang-en">${escapeHtml(a.en)}</span>
+              <span class="lang-en" contenteditable="true" data-path="courses[${ci}].alts[${ai}].en" data-single="1">${escapeHtml(a.en)}</span>
             </div>
           `);
         } else {
           rightParts.push(`
             <div class="alt-row">
-              <div class="lang-de">${escapeHtml(a.de)}</div>
-              <div class="lang-fr">${escapeHtml(a.fr)}</div>
-              <div class="lang-en">${escapeHtml(a.en)}</div>
+              <div class="lang-de" contenteditable="true" data-path="courses[${ci}].alts[${ai}].de" data-multi="1">${escapeHtml(a.de)}</div>
+              <div class="lang-fr" contenteditable="true" data-path="courses[${ci}].alts[${ai}].fr" data-multi="1">${escapeHtml(a.fr)}</div>
+              <div class="lang-en" contenteditable="true" data-path="courses[${ci}].alts[${ai}].en" data-multi="1">${escapeHtml(a.en)}</div>
             </div>
           `);
         }
@@ -1068,10 +1142,15 @@ function renderPreview() {
 
   // Preise (unten rechts)
   if (state.prices.length) {
-    rightParts.push('<div class="menu-prices">');
-    state.prices.forEach(p => {
-      const { text, price } = splitPriceLine(p);
-      rightParts.push(`<div class="price-line"><span class="price-text">${escapeHtml(text)}</span><span class="price-amount">${escapeHtml(price)}</span></div>`);
+    rightParts.push('<div class="menu-prices draggable" data-section="prices">');
+    rightParts.push('<div class="drag-handle" title="Sektion vertikal verschieben"></div>');
+    state.prices.forEach((p, i) => {
+      rightParts.push(`
+        <div class="price-line">
+          <span class="price-text" contenteditable="true" data-path="prices[${i}].text" data-single="1">${escapeHtml(p.text || '')}</span>
+          <span class="price-amount" contenteditable="true" data-path="prices[${i}].amount" data-single="1">${escapeHtml(p.amount || '')}</span>
+        </div>
+      `);
     });
     rightParts.push('</div>');
   }
@@ -1080,6 +1159,9 @@ function renderPreview() {
     <div class="menu-page left">${leftParts.join('\n')}</div>
     <div class="menu-page right">${rightParts.join('\n')}</div>
   `;
+
+  attachInlineEditHandlers();
+  attachDragHandlers();
 
   // Overflow-Check: pro Seite (links/rechts) prüfen, ob Inhalt über
   // die verfügbare Höhe hinausgeht.
@@ -1315,11 +1397,12 @@ function exportExcel() {
 /* =========================================================
    UTILITIES
    ========================================================= */
-/* Rendert Text in mehrere <p>-Absätze (nach Zeilenumbrüchen) mit Sprach-Klasse */
-function renderParagraphs(text, lang) {
-  if (!text) return '';
-  return text.split(/\n\s*\n|\n/).filter(l => l.trim().length).map(p =>
-    `<p class="lang-${lang}">${escapeHtml(p)}</p>`
+/* Rendert Text in mehrere <p>-Absätze für Inline-Edit (ohne Sprach-Klasse,
+   weil der Parent-Container diese trägt). */
+function renderParagraphsPlain(text) {
+  if (!text) return '<p><br></p>';
+  return text.split(/\n\s*\n|\n/).map(p =>
+    `<p>${escapeHtml(p) || '<br>'}</p>`
   ).join('');
 }
 
@@ -1337,6 +1420,168 @@ function splitPriceLine(line) {
   const m = /^(.*?)(CHF\s*[\d.,]+|\d+\.?\d*\s*CHF|€\s*[\d.,]+)\s*$/i.exec(line);
   if (m) return { text: m[1].trim(), price: m[2].trim() };
   return { text: line, price: '' };
+}
+
+/* =========================================================
+   STATE-PFAD-ZUGRIFF + PERSISTENZ
+   ========================================================= */
+function setStatePath(path, value) {
+  const parts = path.match(/[a-zA-Z_][\w]*|\d+/g);
+  let obj = state;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const p = parts[i];
+    obj = /^\d+$/.test(p) ? obj[+p] : obj[p];
+    if (obj === undefined) return;
+  }
+  const last = parts[parts.length - 1];
+  if (/^\d+$/.test(last)) obj[+last] = value; else obj[last] = value;
+}
+
+const STATE_STORE_KEY = 'alpenhof_state_v2';
+const SectionOffsetKeys = {
+  welcome: '--off-welcome', wine: '--off-wine',
+  date: '--off-date', courses: '--off-courses', prices: '--off-prices'
+};
+
+let saveTimer;
+function saveStateDebounced() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(STATE_STORE_KEY, JSON.stringify(state)); } catch(e) {}
+  }, 300);
+}
+function loadStateFromStorage() {
+  try {
+    const raw = localStorage.getItem(STATE_STORE_KEY);
+    if (!raw) return false;
+    const loaded = JSON.parse(raw);
+    Object.assign(state, loaded);
+    return true;
+  } catch(e) { return false; }
+}
+function clearStoredState() {
+  try { localStorage.removeItem(STATE_STORE_KEY); } catch(e) {}
+}
+
+/* =========================================================
+   INLINE-EDIT: alle [data-path]-Elemente sind contenteditable,
+   Änderungen fließen direkt in den State.
+   ========================================================= */
+function attachInlineEditHandlers() {
+  document.querySelectorAll('#menu-inner [data-path]').forEach(el => {
+    el.addEventListener('input', onInlineEdit);
+    el.addEventListener('keydown', onInlineEditKeydown);
+    el.addEventListener('paste', onInlineEditPaste);
+  });
+}
+
+function onInlineEdit(e) {
+  const el = e.currentTarget;
+  const path = el.dataset.path;
+  let value;
+  if (el.dataset.multi === '1') {
+    // Multi-line: innerText gibt \n / \n\n korrekt zurück
+    value = el.innerText.replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+  } else {
+    value = el.innerText.replace(/[\r\n]/g, ' ').trim();
+  }
+  setStatePath(path, value);
+  saveStateDebounced();
+  // Sidebar-Input synchronisieren (falls im DOM)
+  syncSidebarFromState(path);
+}
+
+function onInlineEditKeydown(e) {
+  const el = e.currentTarget;
+  // In einzeiligen Feldern Enter blocken (Blur stattdessen)
+  if (el.dataset.single === '1' && e.key === 'Enter') {
+    e.preventDefault();
+    el.blur();
+  }
+  // Escape = Blur
+  if (e.key === 'Escape') el.blur();
+}
+
+function onInlineEditPaste(e) {
+  // Plain-Text einfügen, nie formatierten HTML-Müll
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  document.execCommand('insertText', false, text);
+}
+
+/* Einfache Rückwärts-Synchronisation: wenn ein Feld editiert wird,
+   das in der Sidebar ein korrespondierendes Input hat, aktualisieren wir dieses. */
+function syncSidebarFromState(path) {
+  const map = {
+    'title.de': 'title-de',
+    'welcome.de': 'welcome-de',
+    'wineTitle.de': 'wine-title-de',
+    'date.de': 'date-de'
+  };
+  const id = map[path];
+  if (!id) return;
+  const input = document.getElementById(id);
+  if (input && input.value !== getStatePath(path)) input.value = getStatePath(path);
+}
+function getStatePath(path) {
+  const parts = path.match(/[a-zA-Z_][\w]*|\d+/g);
+  let obj = state;
+  for (const p of parts) {
+    obj = /^\d+$/.test(p) ? obj[+p] : obj[p];
+    if (obj === undefined) return '';
+  }
+  return obj;
+}
+
+/* =========================================================
+   DRAG-TO-MOVE pro Sektion (vertikal, auf Raster gesnapped).
+   Ändert --off-<section>-Variable live.
+   ========================================================= */
+const SNAP_MM = 1;       // Raster-Snap-Größe in mm
+let dragState = null;
+
+function attachDragHandlers() {
+  document.querySelectorAll('#menu-inner .drag-handle').forEach(h => {
+    h.addEventListener('mousedown', onDragStart);
+  });
+}
+function onDragStart(e) {
+  const handle = e.currentTarget;
+  const section = handle.closest('.draggable');
+  if (!section) return;
+  const key = section.dataset.section;
+  const cssVar = SectionOffsetKeys[key];
+  if (!cssVar) return;
+  const current = layoutState.offsets[cssVar] || 0;
+
+  dragState = {
+    key, cssVar, startY: e.clientY, startOffset: current,
+    zoomFactor: parseFloat(document.getElementById('zoom').value) / 100
+  };
+  document.body.style.cursor = 'ns-resize';
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+  e.preventDefault();
+}
+function onDragMove(e) {
+  if (!dragState) return;
+  // Pixel-Delta in mm umrechnen (mit Zoom-Kompensation)
+  const dyPx = (e.clientY - dragState.startY) / dragState.zoomFactor;
+  const dyMm = dyPx / 3.7795275591;
+  const snapped = Math.round((dragState.startOffset + dyMm) / SNAP_MM) * SNAP_MM;
+  layoutState.offsets[dragState.cssVar] = snapped;
+  applyLayout();
+  // Nudge-Anzeige in Sidebar updaten
+  const row = document.querySelector(`.nudge-row[data-var="${dragState.cssVar}"]`);
+  if (row) row.querySelector('.val').textContent = snapped;
+}
+function onDragEnd() {
+  if (!dragState) return;
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+  document.body.style.cursor = '';
+  saveLayout();
+  dragState = null;
 }
 
 function escapeHtml(s) {
@@ -1383,10 +1628,10 @@ document.getElementById('font-select').addEventListener('change', e => {
   state.font = e.target.value;
   renderPreview();
 });
-document.getElementById('title-de').addEventListener('input', e => { state.title.de = e.target.value; renderPreview(); });
-document.getElementById('welcome-de').addEventListener('input', e => { state.welcome.de = e.target.value; renderPreview(); });
-document.getElementById('wine-title-de').addEventListener('input', e => { state.wineTitle.de = e.target.value; renderPreview(); });
-document.getElementById('date-de').addEventListener('input', e => { state.date.de = e.target.value; renderPreview(); });
+document.getElementById('title-de').addEventListener('input', e => { state.title.de = e.target.value; saveStateDebounced(); renderPreview(); });
+document.getElementById('welcome-de').addEventListener('input', e => { state.welcome.de = e.target.value; saveStateDebounced(); renderPreview(); });
+document.getElementById('wine-title-de').addEventListener('input', e => { state.wineTitle.de = e.target.value; saveStateDebounced(); renderPreview(); });
+document.getElementById('date-de').addEventListener('input', e => { state.date.de = e.target.value; saveStateDebounced(); renderPreview(); });
 
 document.getElementById('zoom').addEventListener('input', applyZoom);
 
@@ -1398,7 +1643,7 @@ const LAYOUT_STORE_KEY = 'alpenhof_layout_v1';
 const layoutState = {
   vars: {},      // CSS-Variablen: { '--fs-body': '10pt', ... }
   offsets: {},   // Nudge-Werte in mm: { '--off-welcome': 0, ... }
-  guides: { 'show-grid': false, 'show-margins': false, 'show-fold': true }
+  guides: { 'show-grid': false, 'show-margins': false, 'show-fold': true, 'show-baseline': false }
 };
 
 function applyLayout() {
@@ -1408,7 +1653,7 @@ function applyLayout() {
   // Offsets in mm
   Object.entries(layoutState.offsets).forEach(([k, v]) => frame.style.setProperty(k, v + 'mm'));
   // Guides
-  ['show-grid', 'show-margins', 'show-fold'].forEach(g => {
+  ['show-grid', 'show-margins', 'show-fold', 'show-baseline'].forEach(g => {
     frame.classList.toggle(g, !!layoutState.guides[g]);
   });
 }
@@ -1539,12 +1784,12 @@ We wish you "en güeta" and enjoy your meal!`;
 
   state.wineTitle = { de: 'Weinempfehlung', fr: 'propositions de vins', en: 'wine recommendation' };
   state.wines = [
-    { de:{name:'Paiien/Heida', info:'58 – Familie Boven, Chamoson'},
-      fr:{name:'Paiien/Heida', info:'58 – Familie Boven, Chamoson'},
-      en:{name:'Paiien/Heida', info:'58 – Familie Boven, Chamoson'} },
-    { de:{name:'Pinot Noir «Stricto Sensu»', info:'89 – Varone, Sion'},
-      fr:{name:'Pinot Noir «Stricto Sensu»', info:'89 – Varone, Sion'},
-      en:{name:'Pinot Noir «Stricto Sensu»', info:'89 – Varone, Sion'} }
+    { de:{name:'Paiien/Heida', price:'58', origin:'Familie Boven, Chamoson'},
+      fr:{name:'Paiien/Heida', price:'58', origin:'Familie Boven, Chamoson'},
+      en:{name:'Paiien/Heida', price:'58', origin:'Familie Boven, Chamoson'} },
+    { de:{name:'Pinot Noir «Stricto Sensu»', price:'89', origin:'Varone, Sion'},
+      fr:{name:'Pinot Noir «Stricto Sensu»', price:'89', origin:'Varone, Sion'},
+      en:{name:'Pinot Noir «Stricto Sensu»', price:'89', origin:'Varone, Sion'} }
   ];
 
   state.date = { de: 'Freitag 17. April 2026', fr: 'Vendredi 17 avril 2026', en: 'Friday 17 April 2026' };
@@ -1590,8 +1835,8 @@ We wish you "en güeta" and enjoy your meal!`;
   ];
 
   state.prices = [
-    '5 Gänge / 5 Plats / 5 Courses     CHF 78',
-    '2 Gänge / 2 Plats / 2 Courses     CHF 48'
+    { text: '5 Gänge / 5 Plats / 5 Courses', amount: 'CHF 78' },
+    { text: '2 Gänge / 2 Plats / 2 Courses', amount: 'CHF 48' }
   ];
 
   // UI neu zeichnen
@@ -1611,6 +1856,7 @@ function clearAll() {
   state.date = { de:'', fr:'', en:'' };
   state.courses = [];
   state.prices = [];
+  clearStoredState();
   document.getElementById('title-de').value = '';
   document.getElementById('welcome-de').value = '';
   document.getElementById('wine-title-de').value = '';
@@ -1624,7 +1870,17 @@ checkFonts();
 loadLayout();
 initLayoutControls();
 applyLayout();
-loadExample();
+const hadSavedState = loadStateFromStorage();
+if (hadSavedState) {
+  // Gespeicherte Daten wiederherstellen
+  document.getElementById('title-de').value = state.title.de || '';
+  document.getElementById('welcome-de').value = state.welcome.de || '';
+  document.getElementById('wine-title-de').value = state.wineTitle?.de || '';
+  document.getElementById('date-de').value = state.date?.de || '';
+  renderWines(); renderCourses(); renderPrices(); renderPreview();
+} else {
+  loadExample();
+}
 applyZoom();
 </script>
 
