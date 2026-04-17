@@ -57,69 +57,58 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; font-family: var(--font-base); color: var(--ink); background: var(--bg); }
 
-/* ---------- LOCK SCREEN (Julen-Stil) ---------- */
-#lock-screen {
-  position: fixed; inset: 0;
-  background:
-    linear-gradient(160deg, rgba(30,26,22,.82), rgba(20,17,14,.94)),
-    url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1600') center/cover no-repeat;
-  display: flex; align-items: center; justify-content: center;
-  z-index: 9999; color: #f3ede3;
-  font-family: 'Avenir', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
+/* ---------- LOCK SCREEN (Template: Tradition-Julen Style) ---------- */
+.lock-screen {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
-#lock-screen.hidden { display: none; }
-
-#lock-screen .lock-box {
-  text-align: center; padding: 40px 32px;
-  max-width: 360px; width: 90%;
+.lock-screen.hidden { display: none; }
+.lock-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background: radial-gradient(ellipse at 20% 80%, rgba(196,162,101,.08) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 20%, rgba(196,162,101,.06) 0%, transparent 50%),
+              linear-gradient(170deg, #0f0d0a 0%, #1a1714 40%, #231f1a 100%);
 }
-#lock-screen .lock-logo { height: 90px; width: auto; margin-bottom: 22px; filter: brightness(0) invert(1); }
-#lock-screen h1 {
-  margin: 0 0 4px; font-size: 22px; letter-spacing: 8px; font-weight: 400;
-  text-transform: uppercase;
+.lock-bg::before {
+  content: ''; position: absolute; inset: 0; opacity: .5;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c4a265' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
-#lock-screen .lock-sub {
-  color: rgba(243,237,227,.55); font-size: 10px; letter-spacing: 4px;
-  text-transform: uppercase; margin-bottom: 30px;
+.lock-content {
+  position: relative; z-index: 1; text-align: center;
+  max-width: 400px; padding: 48px 40px; animation: lockFadeIn .8s ease;
 }
-#lock-screen #lock-quote {
-  font-style: italic; color: rgba(243,237,227,.8); font-size: 14px;
-  min-height: 22px; margin-bottom: 28px; transition: opacity .4s ease;
-  letter-spacing: .5px;
+@keyframes lockFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
-.lock-digits { display: flex; justify-content: center; gap: 10px; margin-bottom: 18px; }
+.lock-logo { width: 120px; height: auto; filter: invert(1); margin-bottom: 12px; opacity: .95; }
+.lock-tagline { font-size: 14px; letter-spacing: 4px; text-transform: uppercase; color: #c4a265; font-weight: 300; margin-bottom: 24px; }
+.lock-divider { width: 60px; height: 1px; background: linear-gradient(90deg, transparent, #c4a265, transparent); margin: 0 auto 24px; }
+.lock-quote { font-size: 20px; font-weight: 300; font-style: italic; color: #f0e8d8; margin-bottom: 40px; line-height: 1.6; min-height: 52px; transition: opacity .4s ease; }
+.lock-form { margin-bottom: 36px; }
+.lock-label { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #6d6050; margin-bottom: 16px; }
+.lock-code-inputs { display: flex; justify-content: center; gap: 12px; margin-bottom: 12px; }
 .lock-digit {
-  width: 52px; height: 62px; text-align: center;
-  font-size: 26px; font-weight: 500;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(243,237,227,.25);
-  border-radius: 4px; color: #f3ede3;
-  outline: none; transition: all .2s;
+  width: 52px; height: 60px; background: rgba(255,255,255,.04); border: 1px solid #3a3228;
+  border-radius: 8px; color: #f0e8d8; font-size: 24px; text-align: center; outline: none;
+  transition: all .2s ease; caret-color: #c4a265;
 }
-.lock-digit:focus { border-color: #7dab6e; background: rgba(125,171,110,.1); }
-.lock-digit.error {
-  border-color: #c94f44; background: rgba(201,79,68,.15);
-  animation: shake .4s;
-}
-@keyframes shake {
+.lock-digit:focus { border-color: #c4a265; background: rgba(196,162,101,.06); box-shadow: 0 0 0 3px rgba(196,162,101,.1); }
+.lock-digit.error { border-color: #c45c5c; background: rgba(196,92,92,.08); animation: lockShake .4s ease; }
+@keyframes lockShake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-6px); }
-  75% { transform: translateX(6px); }
+  20% { transform: translateX(-6px); } 40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); } 80% { transform: translateX(4px); }
 }
-
-#lock-error {
-  min-height: 18px; font-size: 12px; color: #e8a29b;
-  letter-spacing: 1px; margin-bottom: 14px;
+.lock-error { font-size: 12px; color: #c45c5c; min-height: 18px; margin-bottom: 8px; }
+.lock-btn {
+  padding: 12px 48px; background: transparent; border: 1px solid #c4a265; color: #c4a265;
+  font-size: 15px; letter-spacing: 2px; text-transform: uppercase; border-radius: 4px;
+  cursor: pointer; transition: all .25s ease;
 }
-#lock-submit {
-  background: transparent; color: #f3ede3;
-  border: 1px solid rgba(243,237,227,.35);
-  padding: 10px 28px; font-size: 11px; letter-spacing: 3px;
-  text-transform: uppercase; cursor: pointer; border-radius: 3px;
-  transition: all .2s;
-}
-#lock-submit:hover { background: rgba(243,237,227,.1); border-color: #f3ede3; }
+.lock-btn:hover { background: #c4a265; color: #1a1714; }
+.lock-footer { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #3a3228; }
 
 .app { display: grid; }
 
@@ -332,21 +321,26 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
 </head>
 <body>
 
-<!-- Lock-Screen (4-Digit, rotierende Zitate, Julen-Stil) -->
-<div id="lock-screen">
-  <div class="lock-box">
-    <img src="assets/logo.svg" alt="Tradition Julen" class="lock-logo" />
-    <h1>Alpenhof</h1>
-    <div class="lock-sub">Menükarten-Tool</div>
-    <div id="lock-quote">Willkommen</div>
-    <div class="lock-digits">
-      <input class="lock-digit" type="password" inputmode="numeric" maxlength="1" autocomplete="off" />
-      <input class="lock-digit" type="password" inputmode="numeric" maxlength="1" autocomplete="off" />
-      <input class="lock-digit" type="password" inputmode="numeric" maxlength="1" autocomplete="off" />
-      <input class="lock-digit" type="password" inputmode="numeric" maxlength="1" autocomplete="off" />
+<!-- Lock-Screen (Tradition-Julen Template) -->
+<div id="lock-screen" class="lock-screen">
+  <div class="lock-bg"></div>
+  <div class="lock-content">
+    <img src="assets/logo.svg" alt="Tradition Julen" class="lock-logo">
+    <p class="lock-tagline">Seit 1910</p>
+    <div class="lock-divider"></div>
+    <p class="lock-quote" id="lock-quote">Natur, Genuss &amp; Wellness</p>
+    <div class="lock-form">
+      <p class="lock-label">Mitarbeiter-Zugang</p>
+      <div class="lock-code-inputs">
+        <input type="password" maxlength="1" class="lock-digit" data-idx="0" inputmode="numeric" autofocus>
+        <input type="password" maxlength="1" class="lock-digit" data-idx="1" inputmode="numeric">
+        <input type="password" maxlength="1" class="lock-digit" data-idx="2" inputmode="numeric">
+        <input type="password" maxlength="1" class="lock-digit" data-idx="3" inputmode="numeric">
+      </div>
+      <p class="lock-error" id="lock-error"></p>
+      <button id="lock-submit" class="lock-btn">Eintreten</button>
     </div>
-    <div id="lock-error"></div>
-    <button id="lock-submit">Entsperren</button>
+    <p class="lock-footer">Alpenhof · Menükarten-Tool</p>
   </div>
 </div>
 
@@ -468,11 +462,9 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
   const CORRECT_CODE = '3920';
   const SESSION_KEY  = 'alpenhof_auth';
   const QUOTES = [
-    'Willkommen',
-    'Bienvenue',
-    'Welcome',
-    '« en güeta »',
-    'Tradition seit 1910'
+    'Natur, Genuss & Wellness',
+    'Traditionell, Authentisch & Informell',
+    'Einzigartig, Entspannend & Atemberaubend'
   ];
 
   function initLockScreen() {
