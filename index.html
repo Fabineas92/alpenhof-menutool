@@ -33,11 +33,16 @@
   --lh-tight: 1.25;
   --lh-body:  1.35;
 
-  /* Abstände */
-  --gap-lang:    2mm;   /* Abstand zwischen Sprach-Zeilen */
-  --gap-block:   7mm;   /* Abstand zwischen Gang-Blöcken */
-  --gap-section: 9mm;   /* Abstand zwischen Sektionen */
-  --pad-page:    20mm;  /* Innenabstand der Karte */
+  /* Abstände — aus Original-DOCX abgeleitet */
+  --gap-lang:    1.5mm; /* Abstand zwischen Sprach-Zeilen */
+  --gap-block:   6mm;   /* Abstand zwischen Gang-Blöcken */
+  --gap-section: 7mm;   /* Abstand zwischen Sektionen */
+  --pad-top:     15.8mm;
+  --pad-bottom:  14mm;
+  --pad-side:    25.4mm;
+
+  /* Zweispaltiges, aufklappbares Layout (wie Original) */
+  --col-gap:     12.5mm;
 
   /* Farben (Julen/Alpenhof-Palette: warme Creme, Anthrazit, gedämpftes Bergrün) */
   --ink:     #2a2420;
@@ -214,19 +219,27 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
 .preview-tools .zoom { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--muted); letter-spacing: 1.5px; }
 .preview-tools input[type=range] { width: 120px; accent-color: var(--accent); }
 
-/* 297×297mm Karte. Mit CSS-Zoom für den Bildschirm. */
+/* 297×297mm Karte – zweispaltig, aufklappbar (wie Original-DOCX). */
 #menu-frame {
   width: var(--page-size);
   height: var(--page-size);
   background: var(--card);
   box-shadow: 0 4px 24px rgba(0,0,0,.08);
   border: 1px solid var(--border);
-  padding: var(--pad-page);
+  padding: var(--pad-top) var(--pad-side) var(--pad-bottom);
   font-family: var(--font-base);
   color: var(--ink);
   transform-origin: top left;
   overflow: hidden;     /* Überlauf wird erkannt, aber abgeschnitten */
   position: relative;
+}
+
+/* Falzlinie in der Mitte (nur visuelle Hilfe, nicht im Druck) */
+#menu-frame::after {
+  content: '';
+  position: absolute; top: 0; bottom: 0; left: 50%;
+  width: 0; border-left: 1px dashed rgba(0,0,0,.08);
+  pointer-events: none;
 }
 
 #menu-frame.font-semplicita {
@@ -239,7 +252,19 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
 .lang-fr { font-style: italic;  font-weight: 400; }
 .lang-en { font-style: normal; font-weight: 700; }
 
-.menu-inner { display: flex; flex-direction: column; height: 100%; }
+/* Zwei-Spalten-Fluss wie im Original-DOCX (w:cols num=2 space=708) */
+.menu-inner {
+  height: 100%;
+  column-count: 2;
+  column-gap: var(--col-gap);
+  column-fill: auto;   /* Spalte 1 wird zuerst gefüllt, dann Spalte 2 */
+}
+/* Titel, Logo, Preise laufen über beide Spalten (volle Breite) */
+.menu-inner > .menu-logo,
+.menu-inner > .menu-title,
+.menu-inner > .menu-prices { column-span: all; break-inside: avoid; }
+/* Sektionen sollen nicht über Spaltenumbrüche hinweg gerissen werden */
+.menu-section, .course-block, .menu-date, .wine { break-inside: avoid; }
 
 .menu-logo {
   display: flex; justify-content: center; margin-bottom: 6mm;
@@ -292,7 +317,11 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
 .course-sep { text-align: center; margin: var(--gap-block) 0; letter-spacing: 4px; color: var(--muted); }
 .alt-sep { text-align: center; margin: 3mm 0; font-size: var(--fs-body); color: var(--muted); }
 
-.menu-prices { text-align: center; margin-top: auto; padding-top: var(--gap-section); }
+.menu-prices {
+  text-align: center; padding-top: var(--gap-section);
+  margin-top: var(--gap-section);
+  border-top: 1px solid rgba(0,0,0,.15);
+}
 .menu-prices .price-line { font-size: var(--fs-price); font-weight: 600; margin-bottom: 2mm; letter-spacing: 1px; }
 
 /* Warnungs-Badge im Preview */
@@ -881,16 +910,12 @@ function renderPreview() {
 
   inner.innerHTML = parts.join('\n');
 
-  // Overflow-Check: Inhaltshöhe vs. Kartenhöhe
+  // Overflow-Check im 2-Spalten-Layout:
+  // Wenn Inhalt mehr als 2 Spalten benötigt, ist scrollWidth > clientWidth.
   requestAnimationFrame(() => {
-    const innerHeight = inner.scrollHeight;
-    const frameHeight = frame.clientHeight - (2 * mmToPx(20));
+    const overflow = inner.scrollWidth > inner.clientWidth + 2;
     const badge = document.getElementById('overflow-badge');
-    if (innerHeight > frameHeight + 4) {
-      badge.classList.add('visible');
-    } else {
-      badge.classList.remove('visible');
-    }
+    badge.classList.toggle('visible', overflow);
   });
 }
 
@@ -927,13 +952,10 @@ function validateFormat() {
       pushMsg(msgs, 'warn', `Wein ${i+1}: FR/EN-Name fehlt.`);
   });
 
-  // Formatprüfung: Overflow
-  const frame = document.getElementById('menu-frame');
+  // Formatprüfung: Overflow im 2-Spalten-Layout
   const inner = document.getElementById('menu-inner');
-  const innerHeight = inner.scrollHeight;
-  const frameHeight = frame.clientHeight - (2 * mmToPx(20));
-  if (innerHeight > frameHeight + 4) {
-    pushMsg(msgs, 'error', 'Textüberlauf! Inhalt passt nicht auf 297×297 mm. Bitte kürzen oder Schriftgröße anpassen (in CSS).');
+  if (inner.scrollWidth > inner.clientWidth + 2) {
+    pushMsg(msgs, 'error', 'Textüberlauf! Inhalt passt nicht in 2 Spalten auf 297×297 mm. Bitte kürzen.');
   }
 
   // Schriftschnitt-Check (paranoid): Stellt sicher, dass CSS-Klassen existieren
