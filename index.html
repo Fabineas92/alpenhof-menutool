@@ -252,77 +252,101 @@ textarea { min-height: 60px; resize: vertical; line-height: 1.4; }
 .lang-fr { font-style: italic;  font-weight: 400; }
 .lang-en { font-style: normal; font-weight: 700; }
 
-/* Zwei-Spalten-Fluss wie im Original-DOCX (w:cols num=2 space=708) */
+/* Zwei feste Seiten (aufklappbar, Falz in der Mitte) — wie Original-Foto */
 .menu-inner {
   height: 100%;
-  column-count: 2;
-  column-gap: var(--col-gap);
-  column-fill: auto;   /* Spalte 1 wird zuerst gefüllt, dann Spalte 2 */
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--col-gap);
 }
-/* Titel, Logo, Preise laufen über beide Spalten (volle Breite) */
-.menu-inner > .menu-logo,
-.menu-inner > .menu-title,
-.menu-inner > .menu-prices { column-span: all; break-inside: avoid; }
-/* Sektionen sollen nicht über Spaltenumbrüche hinweg gerissen werden */
-.menu-section, .course-block, .menu-date, .wine { break-inside: avoid; }
-
-.menu-logo {
-  display: flex; justify-content: center; margin-bottom: 6mm;
+.menu-page {
+  display: flex; flex-direction: column;
+  height: 100%;
+  text-align: left;
 }
-.menu-logo img { height: 28mm; width: auto; }
+.menu-page.left  { padding-right: 4mm; }
+.menu-page.right { padding-left: 4mm; }
 
+/* Titel (Begrüßung) — linksbündig, fett */
 .menu-title {
-  text-align: center;
-  font-size: var(--fs-title);
-  letter-spacing: 6px;
-  margin-bottom: var(--gap-section);
-  font-weight: 400;
-  text-transform: uppercase;
+  font-size: var(--fs-section);
+  font-weight: 700;
+  margin-bottom: 4mm;
+  letter-spacing: .3px;
 }
-.menu-title .lang-de, .menu-title .lang-fr, .menu-title .lang-en { display: inline; }
-.menu-title .sep { margin: 0 .4em; color: var(--muted); font-weight: 300; }
+.menu-title .sep { margin: 0 .25em; }
+/* Der Titel nutzt einheitliche schwarze Schrift (wie im Foto),
+   Sprachstile werden trotzdem weitergegeben für Konsistenz. */
+.menu-title .lang-de { font-weight: 700; }
+.menu-title .lang-fr { font-weight: 700; font-style: normal; }
+.menu-title .lang-en { font-weight: 700; }
 
-/* Dekorative Trennlinie unter Titel */
-.menu-title::after {
-  content: ''; display: block; width: 24mm; height: 1px;
-  background: var(--ink); margin: 4mm auto 0; opacity: .4;
+/* Welcome-Block: 3 Absätze übereinander, mit Leerraum dazwischen */
+.welcome-block { margin-bottom: var(--gap-section); }
+.welcome-block p {
+  margin: 0 0 1.2mm 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
 }
+.welcome-block .lang-group { margin-bottom: 3.5mm; }
 
-.menu-section { margin-bottom: var(--gap-section); text-align: center; }
-.menu-section.welcome p {
-  margin: 0 0 4mm 0; font-size: var(--fs-body); line-height: var(--lh-body);
+/* Weinempfehlung – linksbündig, unten auf der linken Seite */
+.wine-section { margin-top: auto; }
+.wine-section .section-head {
+  font-size: var(--fs-body); font-weight: 700;
+  margin-bottom: 5mm;
 }
-.menu-section .section-head {
-  font-size: var(--fs-section); font-weight: 600; margin-bottom: 3mm;
-  letter-spacing: 1px;
+.wine-section .section-head .sep { margin: 0 .25em; }
+.wine-list .wine {
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: baseline;
+  margin-bottom: 4mm;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
 }
-.menu-section .section-head .sep { color: var(--muted); margin: 0 .5em; }
+.wine-list .wine .wine-name  { font-weight: 700; }
+.wine-list .wine .wine-price { font-weight: 700; padding-left: 6mm; }
+.wine-list .wine .wine-info  { grid-column: 1 / -1; font-weight: 400; }
 
-.wine-list { font-size: var(--fs-body); line-height: var(--lh-body); }
-.wine-list .wine { margin-bottom: 2mm; }
-
+/* Datum (Kopf der rechten Seite) */
 .menu-date {
-  text-align: center;
-  font-size: var(--fs-date);
-  font-weight: 600;
-  margin: var(--gap-section) 0;
-  letter-spacing: 1px;
+  font-size: var(--fs-body);
+  font-weight: 700;
+  margin-bottom: 5mm;
 }
 
-.courses { display: flex; flex-direction: column; align-items: center; gap: var(--gap-block); }
-.course-block { text-align: center; max-width: 85%; font-size: var(--fs-body); line-height: var(--lh-body); }
-.course-block .alt-row { margin-bottom: var(--gap-lang); }
-.course-block .alt-row > div { margin-bottom: var(--gap-lang); }
-
-.course-sep { text-align: center; margin: var(--gap-block) 0; letter-spacing: 4px; color: var(--muted); }
-.alt-sep { text-align: center; margin: 3mm 0; font-size: var(--fs-body); color: var(--muted); }
-
-.menu-prices {
-  text-align: center; padding-top: var(--gap-section);
-  margin-top: var(--gap-section);
-  border-top: 1px solid rgba(0,0,0,.15);
+/* Gänge – linksbündig, kompakt */
+.courses { display: flex; flex-direction: column; }
+.course-block {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  margin-bottom: 3mm;
 }
-.menu-prices .price-line { font-size: var(--fs-price); font-weight: 600; margin-bottom: 2mm; letter-spacing: 1px; }
+.course-block .alt-row > div { margin-bottom: 0; }
+.course-block .alt-row + .alt-sep { margin-top: 2mm; }
+
+/* Einzeilige Multi-Sprach-Zeile (z. B. "Salat Buffet - Buffet de salades - Salad buffet") */
+.course-block.inline .alt-row {
+  display: block;
+}
+.course-block.inline .alt-row .lang-de,
+.course-block.inline .alt-row .lang-fr,
+.course-block.inline .alt-row .lang-en { display: inline; }
+.course-block.inline .alt-row .sep { margin: 0 .35em; }
+
+.course-sep { margin: 3mm 0; letter-spacing: 3px; }
+.alt-sep { margin: 1.5mm 0; font-size: var(--fs-body); font-weight: 700; }
+
+/* Preise – unten auf der rechten Seite, Zeile mit CHF rechts */
+.menu-prices { margin-top: auto; padding-top: 6mm; }
+.menu-prices .price-line {
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: baseline;
+  font-size: var(--fs-body);
+  font-weight: 700;
+  margin-bottom: 1mm;
+}
+.menu-prices .price-amount { padding-left: 6mm; }
 
 /* Warnungs-Badge im Preview */
 #overflow-badge {
@@ -816,54 +840,54 @@ function renderPreview() {
   frame.classList.add(state.font === 'semplicita' ? 'font-semplicita' : 'font-avenir');
 
   const inner = document.getElementById('menu-inner');
-  const parts = [];
 
-  // Logo
-  parts.push(`<div class="menu-logo"><img src="assets/logo.svg" alt="Tradition Julen" /></div>`);
+  // Hilfsfunktion: kurze, einzeilige Gänge ("Salat Buffet") erkennen
+  function isInlineAlt(a) {
+    if (!a.de || !a.fr || !a.en) return false;
+    const len = Math.max(a.de.length, a.fr.length, a.en.length);
+    return len <= 24 && !/\n/.test(a.de + a.fr + a.en);
+  }
 
-  // Titel
-  parts.push(`
+  // ============ LINKE SEITE ============
+  const leftParts = [];
+
+  // Titel "WILLKOMMEN – BIENVENUE - WELCOME"
+  leftParts.push(`
     <div class="menu-title">
       <span class="lang-de">${escapeHtml(state.title.de)}</span>
       <span class="sep">–</span>
       <span class="lang-fr">${escapeHtml(state.title.fr)}</span>
-      <span class="sep">–</span>
+      <span class="sep">-</span>
       <span class="lang-en">${escapeHtml(state.title.en)}</span>
     </div>
   `);
 
-  // Welcome
-  const wdLines = state.welcome.de.split(/\n\s*\n/).filter(Boolean);
-  const wfLines = state.welcome.fr.split(/\n\s*\n/).filter(Boolean);
-  const weLines = state.welcome.en.split(/\n\s*\n/).filter(Boolean);
-  if (wdLines.length || wfLines.length || weLines.length) {
-    parts.push('<div class="menu-section welcome">');
-    const maxN = Math.max(wdLines.length, wfLines.length, weLines.length);
-    for (let i=0; i<maxN; i++) {
-      parts.push(`
-        <p class="lang-de">${escapeHtml(wdLines[i]||'')}</p>
-        <p class="lang-fr">${escapeHtml(wfLines[i]||'')}</p>
-        <p class="lang-en">${escapeHtml(weLines[i]||'')}</p>
-      `);
-    }
-    parts.push('</div>');
+  // Welcome (3 Sprachblöcke untereinander, mit Leerzeile dazwischen)
+  if (state.welcome.de || state.welcome.fr || state.welcome.en) {
+    leftParts.push('<div class="welcome-block">');
+    leftParts.push(`<div class="lang-group">${renderParagraphs(state.welcome.de, 'de')}</div>`);
+    leftParts.push(`<div class="lang-group">${renderParagraphs(state.welcome.fr, 'fr')}</div>`);
+    leftParts.push(`<div class="lang-group">${renderParagraphs(state.welcome.en, 'en')}</div>`);
+    leftParts.push('</div>');
   }
 
-  // Weine
+  // Wein-Sektion (unten links, margin-top: auto)
   if (state.wines.length) {
-    parts.push(`
-      <div class="menu-section wines">
+    leftParts.push(`
+      <div class="wine-section">
         <div class="section-head">
           <span class="lang-de">${escapeHtml(state.wineTitle.de)}</span>
-          <span class="sep">–</span>
+          <span class="sep">-</span>
           <span class="lang-fr">${escapeHtml(state.wineTitle.fr)}</span>
-          <span class="sep">–</span>
+          <span class="sep">-</span>
           <span class="lang-en">${escapeHtml(state.wineTitle.en)}</span>
         </div>
         <div class="wine-list">
           ${state.wines.map(w => `
             <div class="wine">
-              <div class="lang-de">${escapeHtml(w.de.name)}${w.de.info ? ' — ' + escapeHtml(w.de.info) : ''}</div>
+              <div class="wine-name lang-de">${escapeHtml(w.de.name)}</div>
+              <div class="wine-price lang-de">${escapeHtml(splitWinePrice(w.de.info).price)}</div>
+              <div class="wine-info lang-de">${escapeHtml(splitWinePrice(w.de.info).origin)}</div>
             </div>
           `).join('')}
         </div>
@@ -871,49 +895,76 @@ function renderPreview() {
     `);
   }
 
-  // Datum
+  // ============ RECHTE SEITE ============
+  const rightParts = [];
+
+  // Datum oben rechts
   if (state.date.de) {
-    parts.push(`<div class="menu-date lang-de">${escapeHtml(state.date.de)}</div>`);
+    rightParts.push(`<div class="menu-date lang-de">${escapeHtml(state.date.de)}</div>`);
   }
 
   // Gänge
   if (state.courses.length) {
-    parts.push('<div class="courses">');
+    rightParts.push('<div class="courses">');
     state.courses.forEach((c, ci) => {
-      parts.push('<div class="course-block">');
+      // Wenn der Gang genau EINE kurze Alternative hat → inline-Multi-Sprach-Zeile
+      const singleShort = c.alts.length === 1 && isInlineAlt(c.alts[0]);
+      rightParts.push(`<div class="course-block ${singleShort ? 'inline' : ''}">`);
       c.alts.forEach((a, ai) => {
         if (ai > 0) {
-          parts.push('<div class="alt-sep"><span class="lang-de">oder</span> / <span class="lang-fr">ou</span> / <span class="lang-en">or</span></div>');
+          rightParts.push('<div class="alt-sep"><span class="lang-de">oder</span> / <span class="lang-fr">ou</span> / <span class="lang-en">or</span></div>');
         }
-        parts.push(`
-          <div class="alt-row">
-            <div class="lang-de">${escapeHtml(a.de)}</div>
-            <div class="lang-fr">${escapeHtml(a.fr)}</div>
-            <div class="lang-en">${escapeHtml(a.en)}</div>
-          </div>
-        `);
+        if (singleShort) {
+          rightParts.push(`
+            <div class="alt-row">
+              <span class="lang-de">${escapeHtml(a.de)}</span>
+              <span class="sep">-</span>
+              <span class="lang-fr">${escapeHtml(a.fr)}</span>
+              <span class="sep">-</span>
+              <span class="lang-en">${escapeHtml(a.en)}</span>
+            </div>
+          `);
+        } else {
+          rightParts.push(`
+            <div class="alt-row">
+              <div class="lang-de">${escapeHtml(a.de)}</div>
+              <div class="lang-fr">${escapeHtml(a.fr)}</div>
+              <div class="lang-en">${escapeHtml(a.en)}</div>
+            </div>
+          `);
+        }
       });
-      parts.push('</div>');
+      rightParts.push('</div>');
       if (ci < state.courses.length - 1) {
-        parts.push('<div class="course-sep">* * *</div>');
+        rightParts.push('<div class="course-sep">***</div>');
       }
     });
-    parts.push('</div>');
+    rightParts.push('</div>');
   }
 
-  // Preise
+  // Preise (unten rechts)
   if (state.prices.length) {
-    parts.push('<div class="menu-prices">');
-    state.prices.forEach(p => parts.push(`<div class="price-line">${escapeHtml(p)}</div>`));
-    parts.push('</div>');
+    rightParts.push('<div class="menu-prices">');
+    state.prices.forEach(p => {
+      const { text, price } = splitPriceLine(p);
+      rightParts.push(`<div class="price-line"><span class="price-text">${escapeHtml(text)}</span><span class="price-amount">${escapeHtml(price)}</span></div>`);
+    });
+    rightParts.push('</div>');
   }
 
-  inner.innerHTML = parts.join('\n');
+  inner.innerHTML = `
+    <div class="menu-page left">${leftParts.join('\n')}</div>
+    <div class="menu-page right">${rightParts.join('\n')}</div>
+  `;
 
-  // Overflow-Check im 2-Spalten-Layout:
-  // Wenn Inhalt mehr als 2 Spalten benötigt, ist scrollWidth > clientWidth.
+  // Overflow-Check: pro Seite (links/rechts) prüfen, ob Inhalt über
+  // die verfügbare Höhe hinausgeht.
   requestAnimationFrame(() => {
-    const overflow = inner.scrollWidth > inner.clientWidth + 2;
+    const pages = inner.querySelectorAll('.menu-page');
+    let overflow = false;
+    pages.forEach(p => {
+      if (p.scrollHeight > p.clientHeight + 2) overflow = true;
+    });
     const badge = document.getElementById('overflow-badge');
     badge.classList.toggle('visible', overflow);
   });
@@ -952,11 +1003,13 @@ function validateFormat() {
       pushMsg(msgs, 'warn', `Wein ${i+1}: FR/EN-Name fehlt.`);
   });
 
-  // Formatprüfung: Overflow im 2-Spalten-Layout
-  const inner = document.getElementById('menu-inner');
-  if (inner.scrollWidth > inner.clientWidth + 2) {
-    pushMsg(msgs, 'error', 'Textüberlauf! Inhalt passt nicht in 2 Spalten auf 297×297 mm. Bitte kürzen.');
-  }
+  // Formatprüfung: Overflow pro Seite
+  const pages = document.querySelectorAll('#menu-inner .menu-page');
+  pages.forEach((p, idx) => {
+    if (p.scrollHeight > p.clientHeight + 2) {
+      pushMsg(msgs, 'error', `Textüberlauf auf ${idx === 0 ? 'linker' : 'rechter'} Seite. Inhalt kürzen.`);
+    }
+  });
 
   // Schriftschnitt-Check (paranoid): Stellt sicher, dass CSS-Klassen existieren
   ['lang-de','lang-fr','lang-en'].forEach(cls => {
@@ -1138,6 +1191,30 @@ function exportExcel() {
 /* =========================================================
    UTILITIES
    ========================================================= */
+/* Rendert Text in mehrere <p>-Absätze (nach Zeilenumbrüchen) mit Sprach-Klasse */
+function renderParagraphs(text, lang) {
+  if (!text) return '';
+  return text.split(/\n\s*\n|\n/).filter(l => l.trim().length).map(p =>
+    `<p class="lang-${lang}">${escapeHtml(p)}</p>`
+  ).join('');
+}
+
+/* Trennt Wein-Info in Preis (Zahl am Anfang) + Herkunft (Rest) */
+function splitWinePrice(info) {
+  if (!info) return { price: '', origin: '' };
+  const m = /^\s*([\d.,]+)\s*[–\-—]?\s*(.*)$/.exec(info);
+  if (m) return { price: m[1], origin: m[2].trim() };
+  return { price: '', origin: info };
+}
+
+/* Trennt Preis-Zeile ("5 Gänge / 5 Plats / 5 Courses     CHF 78")
+   in Text + CHF-Betrag (für right-aligned CHF-Spalte) */
+function splitPriceLine(line) {
+  const m = /^(.*?)(CHF\s*[\d.,]+|\d+\.?\d*\s*CHF|€\s*[\d.,]+)\s*$/i.exec(line);
+  if (m) return { text: m[1].trim(), price: m[2].trim() };
+  return { text: line, price: '' };
+}
+
 function escapeHtml(s) {
   if (s === undefined || s === null) return '';
   return String(s)
@@ -1218,12 +1295,12 @@ We wish you "en güeta" and enjoy your meal!`;
 
   state.wineTitle = { de: 'Weinempfehlung', fr: 'propositions de vins', en: 'wine recommendation' };
   state.wines = [
-    { de:{name:'Païen / Heida', info:'58 – Familie Boven, Chamoson'},
-      fr:{name:'Païen / Heida', info:'58 – Familie Boven, Chamoson'},
-      en:{name:'Païen / Heida', info:'58 – Familie Boven, Chamoson'} },
-    { de:{name:'Pinot Noir « Stricto Sensu »', info:'89 – Varone, Sion'},
-      fr:{name:'Pinot Noir « Stricto Sensu »', info:'89 – Varone, Sion'},
-      en:{name:'Pinot Noir « Stricto Sensu »', info:'89 – Varone, Sion'} }
+    { de:{name:'Paiien/Heida', info:'58 – Familie Boven, Chamoson'},
+      fr:{name:'Paiien/Heida', info:'58 – Familie Boven, Chamoson'},
+      en:{name:'Paiien/Heida', info:'58 – Familie Boven, Chamoson'} },
+    { de:{name:'Pinot Noir «Stricto Sensu»', info:'89 – Varone, Sion'},
+      fr:{name:'Pinot Noir «Stricto Sensu»', info:'89 – Varone, Sion'},
+      en:{name:'Pinot Noir «Stricto Sensu»', info:'89 – Varone, Sion'} }
   ];
 
   state.date = { de: 'Freitag 17. April 2026', fr: 'Vendredi 17 avril 2026', en: 'Friday 17 April 2026' };
