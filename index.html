@@ -25,21 +25,21 @@
   /* Schriftgrößen — zur Laufzeit über Einstellungen veränderbar */
   --fs-title:    11pt;
   --fs-section:  11pt;
-  --fs-body:     10pt;
-  --fs-price:    10pt;
+  --fs-body:     9pt;
+  --fs-price:    9pt;
   --fs-date:     11pt;
 
   /* Zeilenhöhen */
   --lh-tight: 1.2;
-  --lh-body:  1.3;
+  --lh-body:  1.25;
 
-  /* Abstände */
-  --gap-lang:     0.5mm;
-  --gap-welcome:  3.5mm;  /* Abstand zwischen DE/FR/EN Welcome-Blöcken */
-  --gap-course:   3mm;    /* Abstand zwischen Gängen */
-  --gap-course-sep: 3mm;  /* Abstand um *** Separator */
-  --gap-alt:      2mm;    /* Abstand um "oder / ou / or" */
-  --gap-section:  6mm;
+  /* Abstände — kompakt, damit das 5-Gang-Menü auf die Seite passt */
+  --gap-lang:       0.5mm;
+  --gap-welcome:    3mm;
+  --gap-course:     2mm;
+  --gap-course-sep: 2mm;
+  --gap-alt:        1.5mm;
+  --gap-section:    5mm;
   --pad-top:      15.8mm;
   --pad-bottom:   14mm;
   --pad-side:     25.4mm;
@@ -565,10 +565,10 @@ details[open] > summary::before { content: '▾ '; }
 
       <details open>
         <summary style="cursor:pointer; font-size:11px; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px;">Schriftgrößen (pt)</summary>
-        <div class="slider-row"><label>Text</label><input type="range" data-var="--fs-body" data-unit="pt" min="7" max="14" step="0.5" value="10" /><span class="val">10</span></div>
+        <div class="slider-row"><label>Text</label><input type="range" data-var="--fs-body" data-unit="pt" min="7" max="14" step="0.5" value="9" /><span class="val">9</span></div>
         <div class="slider-row"><label>Titel</label><input type="range" data-var="--fs-title" data-unit="pt" min="9" max="18" step="0.5" value="11" /><span class="val">11</span></div>
         <div class="slider-row"><label>Datum</label><input type="range" data-var="--fs-date" data-unit="pt" min="8" max="16" step="0.5" value="11" /><span class="val">11</span></div>
-        <div class="slider-row"><label>Zeilenh.</label><input type="range" data-var="--lh-body" data-unit="" min="1.0" max="1.6" step="0.05" value="1.3" /><span class="val">1.3</span></div>
+        <div class="slider-row"><label>Zeilenh.</label><input type="range" data-var="--lh-body" data-unit="" min="1.0" max="1.6" step="0.05" value="1.25" /><span class="val">1.25</span></div>
       </details>
 
       <details>
@@ -581,11 +581,11 @@ details[open] > summary::before { content: '▾ '; }
 
       <details>
         <summary style="cursor:pointer; font-size:11px; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin:10px 0 8px;">Abstände (mm)</summary>
-        <div class="slider-row"><label>Welcome</label><input type="range" data-var="--gap-welcome" data-unit="mm" min="1" max="15" step="0.5" value="3.5" /><span class="val">3.5</span></div>
-        <div class="slider-row"><label>Gänge</label><input type="range" data-var="--gap-course" data-unit="mm" min="0" max="10" step="0.5" value="3" /><span class="val">3</span></div>
-        <div class="slider-row"><label>***</label><input type="range" data-var="--gap-course-sep" data-unit="mm" min="0" max="10" step="0.5" value="3" /><span class="val">3</span></div>
-        <div class="slider-row"><label>oder</label><input type="range" data-var="--gap-alt" data-unit="mm" min="0" max="8" step="0.5" value="2" /><span class="val">2</span></div>
-        <div class="slider-row"><label>Sektion</label><input type="range" data-var="--gap-section" data-unit="mm" min="2" max="20" step="0.5" value="6" /><span class="val">6</span></div>
+        <div class="slider-row"><label>Welcome</label><input type="range" data-var="--gap-welcome" data-unit="mm" min="1" max="15" step="0.5" value="3" /><span class="val">3</span></div>
+        <div class="slider-row"><label>Gänge</label><input type="range" data-var="--gap-course" data-unit="mm" min="0" max="10" step="0.5" value="2" /><span class="val">2</span></div>
+        <div class="slider-row"><label>***</label><input type="range" data-var="--gap-course-sep" data-unit="mm" min="0" max="10" step="0.5" value="2" /><span class="val">2</span></div>
+        <div class="slider-row"><label>oder</label><input type="range" data-var="--gap-alt" data-unit="mm" min="0" max="8" step="0.5" value="1.5" /><span class="val">1.5</span></div>
+        <div class="slider-row"><label>Sektion</label><input type="range" data-var="--gap-section" data-unit="mm" min="2" max="20" step="0.5" value="5" /><span class="val">5</span></div>
       </details>
 
       <details>
@@ -1430,7 +1430,10 @@ function renderParagraphsPlain(text) {
    passieren dann NUR nach Kommas, nie mitten in einer Gruppe. */
 function preventCommaWidows(text) {
   if (!text) return '';
-  return text.split(',').map(group => group.replace(/ /g, '\u00A0')).join(', ');
+  return text.split(',')
+    .map(group => group.trim().replace(/\s+/g, '\u00A0'))
+    .filter(g => g.length > 0)
+    .join(', ');
 }
 
 /* Rendert eine Menü-Zeile als HTML mit Widow-Control. */
