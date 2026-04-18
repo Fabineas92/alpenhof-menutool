@@ -559,6 +559,29 @@ details[open] > summary::before { content: '▾ '; }
       </div>
     </div>
 
+    <!-- Vorlagen -->
+    <div class="section">
+      <h2>Vorlagen</h2>
+
+      <label>Vorlage laden</label>
+      <div class="row" style="gap: 6px; align-items: stretch;">
+        <select id="template-select" style="flex: 1;">
+          <option value="">— wählen —</option>
+        </select>
+        <button class="btn small secondary" onclick="loadSelectedTemplate()">Laden</button>
+      </div>
+
+      <label style="margin-top: 10px;">Als Vorlage speichern</label>
+      <div class="row" style="gap: 6px; align-items: stretch;">
+        <input type="text" id="template-name" placeholder="z. B. Menü Montag" style="flex: 1;" />
+        <button class="btn small" onclick="saveAsTemplate()">Speichern</button>
+      </div>
+
+      <div class="btn-row" style="margin-top: 8px;">
+        <button class="btn danger small wide" onclick="deleteSelectedTemplate()">Ausgewählte Vorlage löschen</button>
+      </div>
+    </div>
+
     <!-- Layout-Einstellungen -->
     <div class="section">
       <h2>Layout &amp; Schrift</h2>
@@ -1758,6 +1781,163 @@ function initLayoutControls() {
   });
 }
 
+/* =========================================================
+   VORLAGEN (Templates): Komplettes Menü + Layout + Font
+   speichern / laden / löschen. Persistiert in localStorage.
+   ========================================================= */
+const TEMPLATE_STORE_KEY = 'alpenhof_templates_v1';
+
+function listTemplates() {
+  try {
+    const raw = localStorage.getItem(TEMPLATE_STORE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function persistTemplates(arr) {
+  try { localStorage.setItem(TEMPLATE_STORE_KEY, JSON.stringify(arr)); } catch(e) {}
+}
+
+function refreshTemplateDropdown(selectName) {
+  const sel = document.getElementById('template-select');
+  if (!sel) return;
+  const templates = listTemplates();
+  sel.innerHTML = '<option value="">— wählen —</option>' +
+    templates.map(t => `<option value="${escapeAttr(t.name)}">${escapeHtml(t.name)}</option>`).join('');
+  if (selectName) sel.value = selectName;
+}
+
+function snapshotCurrentAsTemplate(name) {
+  return {
+    name,
+    createdAt: new Date().toISOString(),
+    font: state.font,
+    layout: JSON.parse(JSON.stringify(layoutState)),
+    content: {
+      title:     JSON.parse(JSON.stringify(state.title)),
+      welcome:   JSON.parse(JSON.stringify(state.welcome)),
+      wineTitle: JSON.parse(JSON.stringify(state.wineTitle)),
+      wines:     JSON.parse(JSON.stringify(state.wines)),
+      date:      JSON.parse(JSON.stringify(state.date)),
+      courses:   JSON.parse(JSON.stringify(state.courses)),
+      prices:    JSON.parse(JSON.stringify(state.prices))
+    }
+  };
+}
+
+function saveAsTemplate() {
+  const input = document.getElementById('template-name');
+  const name = (input.value || '').trim();
+  if (!name) {
+    showMessages([{ type: 'warn', text: 'Bitte einen Namen für die Vorlage eingeben.' }]);
+    input.focus();
+    return;
+  }
+  const templates = listTemplates();
+  const existingIdx = templates.findIndex(t => t.name === name);
+  const snapshot = snapshotCurrentAsTemplate(name);
+  if (existingIdx >= 0) {
+    if (!confirm(`Vorlage "${name}" existiert bereits. Überschreiben?`)) return;
+    templates[existingIdx] = snapshot;
+  } else {
+    templates.push(snapshot);
+  }
+  templates.sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  persistTemplates(templates);
+  refreshTemplateDropdown(name);
+  input.value = '';
+  showMessages([{ type: 'ok', text: `Vorlage "${name}" gespeichert.` }]);
+}
+
+function applyTemplate(tpl) {
+  if (!tpl) return;
+  // Font
+  if (tpl.font) {
+    state.font = tpl.font;
+    document.getElementById('font-select').value = tpl.font;
+  }
+  // Layout wiederherstellen (CSS-Variablen, Offsets, Guides)
+  if (tpl.layout) {
+    layoutState.vars = JSON.parse(JSON.stringify(tpl.layout.vars || {}));
+    layoutState.offsets = JSON.parse(JSON.stringify(tpl.layout.offsets || {}));
+    layoutState.guides = Object.assign(
+      { 'show-grid': false, 'show-margins': false, 'show-fold': true, 'show-baseline': false },
+      tpl.layout.guides || {}
+    );
+    // Alle bisherigen inline-CSS-Variablen am Frame löschen, dann neu applyLayout()
+    const frame = document.getElementById('menu-frame');
+    [...frame.style].forEach(p => { if (p.startsWith('--')) frame.style.removeProperty(p); });
+    applyLayout();
+    // Slider-UI mit gespeicherten Werten synchronisieren
+    document.querySelectorAll('.slider-row input[type=range]').forEach(input => {
+      const v = layoutState.vars[input.dataset.var];
+      if (v !== undefined) {
+        const num = parseFloat(v);
+        if (!isNaN(num)) {
+          input.value = num;
+          input.parentElement.querySelector('.val').textContent = num;
+        }
+      }
+    });
+    document.querySelectorAll('.nudge-row').forEach(row => {
+      const v = layoutState.offsets[row.dataset.var] || 0;
+      row.querySelector('.val').textContent = v;
+    });
+    document.querySelectorAll('input[type=checkbox][data-guide]').forEach(cb => {
+      cb.checked = !!layoutState.guides[cb.dataset.guide];
+    });
+  }
+  // Content wiederherstellen
+  if (tpl.content) {
+    const c = tpl.content;
+    if (c.title)     state.title     = JSON.parse(JSON.stringify(c.title));
+    if (c.welcome)   state.welcome   = JSON.parse(JSON.stringify(c.welcome));
+    if (c.wineTitle) state.wineTitle = JSON.parse(JSON.stringify(c.wineTitle));
+    if (c.wines)     state.wines     = JSON.parse(JSON.stringify(c.wines));
+    if (c.date)      state.date      = JSON.parse(JSON.stringify(c.date));
+    if (c.courses)   state.courses   = JSON.parse(JSON.stringify(c.courses));
+    if (c.prices)    state.prices    = JSON.parse(JSON.stringify(c.prices));
+  }
+  // Sidebar-Felder abgleichen + Vorschau neu zeichnen
+  document.getElementById('title-de').value       = state.title.de;
+  document.getElementById('welcome-de').value     = state.welcome.de;
+  document.getElementById('wine-title-de').value  = state.wineTitle.de;
+  document.getElementById('date-de').value        = state.date.de;
+  renderWines(); renderCourses(); renderPrices(); renderPreview();
+  saveStateDebounced();
+  saveLayout();
+}
+
+function loadSelectedTemplate() {
+  const sel = document.getElementById('template-select');
+  const name = sel.value;
+  if (!name) {
+    showMessages([{ type: 'warn', text: 'Bitte zuerst eine Vorlage auswählen.' }]);
+    return;
+  }
+  const tpl = listTemplates().find(t => t.name === name);
+  if (!tpl) {
+    showMessages([{ type: 'error', text: `Vorlage "${name}" nicht gefunden.` }]);
+    return;
+  }
+  applyTemplate(tpl);
+  showMessages([{ type: 'ok', text: `Vorlage "${name}" geladen.` }]);
+}
+
+function deleteSelectedTemplate() {
+  const sel = document.getElementById('template-select');
+  const name = sel.value;
+  if (!name) {
+    showMessages([{ type: 'warn', text: 'Keine Vorlage ausgewählt.' }]);
+    return;
+  }
+  if (!confirm(`Vorlage "${name}" wirklich löschen?`)) return;
+  const templates = listTemplates().filter(t => t.name !== name);
+  persistTemplates(templates);
+  refreshTemplateDropdown();
+  showMessages([{ type: 'ok', text: `Vorlage "${name}" gelöscht.` }]);
+}
+
 function resetLayout() {
   try { localStorage.removeItem(LAYOUT_STORE_KEY); } catch(e) {}
   // Alle inline-gesetzten Variablen entfernen
@@ -1911,6 +2091,14 @@ if (hadSavedState) {
   loadExample();
 }
 applyZoom();
+
+// Vorlagen-Dropdown beim Start füllen + einmalig Standard-Vorlage anlegen
+(function initTemplates() {
+  if (listTemplates().length === 0) {
+    persistTemplates([ snapshotCurrentAsTemplate('Alpenhof Standard') ]);
+  }
+  refreshTemplateDropdown();
+})();
 </script>
 
 </body>
