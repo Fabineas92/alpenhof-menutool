@@ -366,23 +366,27 @@ details[open] > summary::before { content: '▾ '; }
   column-gap: var(--col-gap);
   row-gap: 0;
 }
-.menu-cell { text-align: left; min-width: 0; }
+.menu-cell { text-align: left; min-width: 0; display: flex; flex-direction: column; }
 .menu-cell.left  { padding-right: 4mm; }
 .menu-cell.right { padding-left: 4mm; }
-.menu-cell.body  { overflow: hidden; }
+.menu-cell.header { justify-content: flex-start; }
+.menu-cell.body   { justify-content: flex-start; overflow: hidden; }
+/* WICHTIG: Footer-Cells unten ausgerichtet — letzte Wein-Zeile und
+   letzte Preis-Zeile landen exakt auf gleicher Bottom-Baseline. */
+.menu-cell.footer { justify-content: flex-end; }
 
 /* Header (WILLKOMMEN links und Datum rechts): identische Metriken
    für pixel-exakt gleiche Startposition auf beiden Seiten. */
 .menu-title,
 .menu-date {
-  font-size: var(--fs-title);
   font-weight: 700;
   line-height: var(--lh-tight);
   letter-spacing: 0;
   margin: 0;
   padding: 0 0 5mm 0;
 }
-.menu-date { transform: translateY(var(--off-date)); }
+.menu-title { font-size: var(--fs-title); }
+.menu-date  { font-size: var(--fs-date); transform: translateY(var(--off-date)); }
 .menu-title .sep { margin: 0 .25em; }
 .menu-title .lang-de,
 .menu-title .lang-fr,
@@ -419,6 +423,8 @@ details[open] > summary::before { content: '▾ '; }
 .wine-list .wine .wine-name  { font-weight: 700; }
 .wine-list .wine .wine-price { font-weight: 700; padding-left: 6mm; }
 .wine-list .wine .wine-info  { grid-column: 1 / -1; font-weight: 400; }
+/* Letzte Wein-Zeile ohne Bottom-Margin → bündig mit Footer-Edge */
+.wine-list .wine:last-child { margin-bottom: 0; }
 
 /* Gänge – linksbündig, kompakt */
 .courses {
@@ -464,6 +470,8 @@ details[open] > summary::before { content: '▾ '; }
   margin-bottom: 1mm;
 }
 .menu-prices .price-amount { padding-left: 6mm; }
+/* Letzte Preis-Zeile ohne Bottom-Margin → bündig mit Footer-Edge */
+.menu-prices .price-line:last-child { margin-bottom: 0; }
 
 /* Warnungs-Badge im Preview */
 #overflow-badge {
